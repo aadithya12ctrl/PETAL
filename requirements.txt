@@ -1,0 +1,11 @@
+# Phase 1-6 (all present in the system Python 3.12 already, pinned for reproducibility)
+numpy>=2.0
+scipy>=1.14
+pandas>=2.2
+matplotlib>=3.9
+requests>=2.32
+scikit-learn>=1.5
+# Phase 4 detector (local, CPU)
+transformers>=4.44
+torch>=2.4
+sentence-transformers>=3.0
