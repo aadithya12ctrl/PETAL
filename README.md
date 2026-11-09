@@ -13,7 +13,7 @@ models for under ~$8.
 | Phase | Content | State |
 |---|---|---|
 | 1 | Repo, OpenRouter client, disk cache, cost meter, model verification | **done** |
-| 2 | 60 scenarios + deterministic scorers | pending |
+| 2 | 60 scenarios + deterministic scorers | **done** |
 | 3 | 3-hop relay harness, 8 arms, gap detection, petal, decision-only relay | pending |
 | 4 | Local NLI detector + judge escalation + Rogan–Gladen | pending |
 | 5 | Exp 2 stochastic ladder + probes | pending |
@@ -39,8 +39,9 @@ whole pipeline runs end-to-end at zero cost. `LLMClient.is_paid` is the switch.
 ## Scripts
 
 ```
-py -3.12 scripts/check_models.py [--write]   # verify plan model ids, snapshot catalogue, price them
-py -3.12 scripts/budget_report.py [--ledger] # project spend; --ledger adds observed per-call cost
+py -3.12 scripts/check_models.py [--write]     # verify plan model ids, snapshot catalogue, price them
+py -3.12 scripts/budget_report.py [--ledger]   # project spend; --ledger adds observed per-call cost
+py -3.12 scripts/build_scenarios.py [--strict] # build + validate the 60-scenario testbed
 py -3.12 -m unittest discover -s tests -t . -v
 ```
 
@@ -92,3 +93,55 @@ The per-block split differs from the plan, which matters for where to economise:
   agent calls is the most effective knob.
 
 Full report: `results/budget.md`, `results/model_check.md`.
+
+## Phase 2: the testbed
+
+60 scenarios (30 decision-type, 30 content-type) across the plan's six domains,
+from twelve hand-written templates in
+[petal/scenarios/templates.py](petal/scenarios/templates.py). Permitted contexts
+run 1247–1412 tokens. All people, organisations and identifiers are fictional.
+
+**Decision instances are built by elimination, not by assertion.** Four options,
+each with a *permitted* requirement printed in the case file. The restricted
+annex bars exactly two; a permitted service-level constraint removes one more;
+exactly one survives. So three options are viable without S — the floor for
+U_drop is 1/3 — and the answer follows from the annex rather than sitting next to
+it. The swap S′ is drawn from the categories that bar the answer-under-S while
+leaving the eliminated option alone, which guarantees the swap *changes the
+answer*: the Swap arm can therefore show that an agent used S, not merely that it
+talked about S.
+
+**The δ ceiling, and why the headline claim is not circular.** Conjecture C1 says
+δ is low when the output must *contain* S-derived content. If content rubrics put
+all their credit on items requiring an assertion of S, δ ≈ 0 would follow from
+rubric design and measuring it would prove nothing. So every rubric item records
+whether earning it requires asserting the restricted proposition, and each
+scenario publishes
+
+```
+delta_ceiling = (U_max_without_asserting_S − U_chance) / (1 − U_chance)
+```
+
+which is **1.00 for decision-type and 0.40 for content-type**. A measured δ is
+read against its own ceiling, so the claim under test becomes "δ sits near
+ceiling for decision-type and far below it for content-type" — a statement about
+agents, not about our rubric. `tests/test_phase2.py` pins this down: an answer
+that satisfies every non-entailing rubric item and asserts nothing scores
+*exactly* 0.40.
+
+**Validation is a build gate.** `validate()` rejects a scenario whose swap leaves
+the answer unchanged, whose correct answer is reachable by elimination alone,
+whose rubric is all-entailing or none-entailing, or — the one that actually fired
+— whose permitted context contains any surface form of the restricted content.
+That last check caught the Tier A requirement in the loan domain naming the
+restricted condition outright ("no active debt-management arrangement"), which
+would have turned causal leaks into inference-floor events across that whole
+domain. Reworded to "a clear conduct marker on the member record"; all 60 now
+pass under `--strict`.
+
+**For your hand-check:** `data/scenarios/handcheck.md` has one block per scenario
+— annex, swap, watched surface forms, answer key or rubric, and the full
+permitted context. Per scenario, confirm (a) the annex really does rule out the
+options the build note claims, (b) the answer under S is the only survivor,
+(c) the swap changes the answer, (d) nothing in the permitted context gives the
+proposition away. Summary: `results/testbed_summary.md`.
