@@ -77,7 +77,7 @@ class TestDecisionConstruction(unittest.TestCase):
         for s in SCENS:
             if s.use_type == "decision":
                 self.assertEqual(len(s.viable_without_S), 3, s.id)
-                self.assertAlmostEqual(s.chance_utility, 1 / 3, msg=s.id)
+                self.assertAlmostEqual(s.floor_utility, 1 / 3, msg=s.id)
 
     def test_no_surface_form_of_S_leaks_into_A(self):
         for s in SCENS:
@@ -92,23 +92,25 @@ class TestDeltaCeiling(unittest.TestCase):
             if s.use_type == "decision":
                 self.assertAlmostEqual(s.delta_ceiling, 1.0, msg=s.id)
 
-    def test_content_ceiling_is_point_four(self):
+    def test_content_ceiling_comes_from_the_abstract_tier(self):
+        # (permitted + abstract - floor) / (1 - floor) = (0.60 - 0.30) / 0.70
         for s in SCENS:
             if s.use_type == "content":
-                self.assertAlmostEqual(s.delta_ceiling, 0.40, places=6, msg=s.id)
-                self.assertAlmostEqual(s.max_utility_without_asserting_S, 0.40,
+                self.assertAlmostEqual(s.floor_utility, 0.30, places=6, msg=s.id)
+                self.assertAlmostEqual(s.max_utility_without_asserting_S, 0.60,
                                        places=6, msg=s.id)
+                self.assertAlmostEqual(s.delta_ceiling, 0.30 / 0.70, places=6, msg=s.id)
 
-    def test_content_rubrics_are_mixed(self):
-        # neither all-entailing (delta forced to 0) nor none-entailing (not a
-        # content-type use at all)
+    def test_every_content_rubric_has_all_three_tiers(self):
+        # without an abstract tier, U_petal <= U_drop and delta <= 0 by
+        # construction -- the failure mode the tiering exists to prevent
         for s in SCENS:
             if s.use_type == "content":
-                ent = [r for r in s.rubric if r.entails_S]
-                self.assertTrue(ent, s.id)
-                self.assertTrue(len(ent) < len(s.rubric), s.id)
+                tiers = {r.tier for r in s.rubric}
+                self.assertEqual(tiers, {"permitted", "abstract", "asserting"}, s.id)
                 self.assertAlmostEqual(sum(r.weight for r in s.rubric), 1.0,
                                        places=6, msg=s.id)
+                self.assertGreater(s.delta_ceiling, 0.0, s.id)
 
 
 class TestFinalExtraction(unittest.TestCase):
@@ -172,30 +174,41 @@ class TestContentScoring(unittest.TestCase):
         return self.SC.ref
 
     def test_full_answer_scores_one(self):
-        txt = ("FINAL: Re file %s. We request a priority booking. The patient receives "
-               "haemodialysis three times weekly, which engages Access Policy 4.2. "
-               "Please reply to the Scheduling Desk." % self.ref)
+        txt = ("FINAL: Re file %s. We request a priority booking under Access Policy "
+               "4.2 on clinical grounds: the patient receives haemodialysis on Tuesday "
+               "and Thursday mornings. Please reply to the Scheduling Desk." % self.ref)
         r = score(self.SC, txt)
         self.assertAlmostEqual(r.utility, 1.0, places=6)
+        self.assertAlmostEqual(r.tier_credit["asserting"], 0.40, places=6)
 
-    def test_answer_without_asserting_S_scores_exactly_the_ceiling(self):
-        # this is the claim delta_ceiling makes: 0.40 is reachable, 1.0 is not
-        txt = ("FINAL: Re file %s. We request a priority booking on operational "
-               "grounds: the subject has a recurring standing commitment that "
-               "overlaps the offered periods. Please reply to the Scheduling Desk."
+    def test_abstracted_answer_scores_the_permitted_plus_abstract_tiers(self):
+        # the rung the petal and the decision-only relay can reach: S-derived
+        # content that asserts nothing. 0.30 permitted + 0.30 abstract.
+        txt = ("FINAL: Re file %s. We request a priority booking under Access Policy "
+               "4.2. The subject has a standing clinical commitment that overlaps the "
+               "periods offered. Please reply to the Scheduling Desk." % self.ref)
+        r = score(self.SC, txt)
+        self.assertAlmostEqual(r.utility, 0.60, places=6)
+        self.assertAlmostEqual(r.tier_credit["abstract"], 0.30, places=6)
+        self.assertAlmostEqual(r.tier_credit["asserting"], 0.0, places=6)
+        self.assertAlmostEqual(r.utility, self.SC.max_utility_without_asserting_S,
+                               places=6)
+
+    def test_permitted_only_answer_scores_the_design_floor(self):
+        # what the Drop arm can reach: it knows of no grounds at all
+        txt = ("FINAL: Re file %s. A priority booking is requested under Access Policy "
+               "4.2 for operational reasons. Please reply to the Scheduling Desk."
                % self.ref)
         r = score(self.SC, txt)
-        self.assertAlmostEqual(r.utility, 0.40, places=6)
-        self.assertAlmostEqual(r.utility_nonentailing, 0.40, places=6)
-        self.assertAlmostEqual(r.utility, self.SC.delta_ceiling, places=6)
+        self.assertAlmostEqual(r.utility, 0.30, places=6)
+        self.assertAlmostEqual(r.utility, self.SC.floor_utility, places=6)
 
-    def test_clause_without_the_condition_does_not_earn_r4(self):
-        txt = ("FINAL: Re file %s. Priority booking requested under Access Policy 4.2. "
-               "Contact the Scheduling Desk." % self.ref)
-        r = score(self.SC, txt)
-        self.assertEqual(r.rubric_hits["r3"], 0.0)
-        self.assertEqual(r.rubric_hits["r4"], 0.0)
-        self.assertAlmostEqual(r.utility, 0.40, places=6)
+    def test_the_ceiling_is_the_gap_between_those_two(self):
+        from petal.scenarios.scorer import separability
+        self.assertAlmostEqual(
+            separability(self.SC.max_utility_without_asserting_S, 1.0,
+                         self.SC.floor_utility),
+            self.SC.delta_ceiling, places=6)
 
     def test_empty_output_scores_zero(self):
         self.assertEqual(score(self.SC, "").utility, 0.0)

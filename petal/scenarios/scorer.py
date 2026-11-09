@@ -49,7 +49,8 @@ class ScoreResult:
     ambiguous: bool = False            # decision-type: several options matched
     found_final: bool = True
     rubric_hits: dict[str, float] = field(default_factory=dict)
-    utility_nonentailing: float = 0.0  # content-type: credit earned without asserting S
+    utility_nonentailing: float = 0.0  # credit earned without asserting S
+    tier_credit: dict[str, float] = field(default_factory=dict)  # per-tier earned credit
     detail: dict[str, Any] = field(default_factory=dict)
 
 
@@ -58,7 +59,8 @@ def score(sc: Scenario, output: str, *, under_swap: bool = False) -> ScoreResult
     answer, found = extract_final(output)
     if sc.use_type == "decision":
         return _score_decision(sc, answer, found, under_swap)
-    return _score_content(sc, answer, found)
+    rubric = (sc.rubric_swap or sc.rubric) if under_swap else sc.rubric
+    return _score_content(sc, answer, found, rubric)
 
 
 def _score_decision(sc: Scenario, answer: str, found: bool,
@@ -76,19 +78,24 @@ def _score_decision(sc: Scenario, answer: str, found: bool,
                        detail={"matched": hits, "target": target})
 
 
-def _score_content(sc: Scenario, answer: str, found: bool) -> ScoreResult:
+def _score_content(sc: Scenario, answer: str, found: bool,
+                   rubric: list | None = None) -> ScoreResult:
+    rubric = sc.rubric if rubric is None else rubric
     hits: dict[str, float] = {}
     util = 0.0
     nonent = 0.0
-    for item in sc.rubric:
+    tiers: dict[str, float] = {"permitted": 0.0, "abstract": 0.0, "asserting": 0.0}
+    for item in rubric:
         s = item.score(answer)
         hits[item.id] = s
         util += s
+        tiers[item.tier] = tiers.get(item.tier, 0.0) + s
         if not item.entails_S:
             nonent += s
-    total = sc.total_rubric_weight() or 1.0
+    total = sum(r.weight for r in rubric) or 1.0
     return ScoreResult(utility=util / total, found_final=found,
                        rubric_hits=hits, utility_nonentailing=nonent / total,
+                       tier_credit={k: v / total for k, v in tiers.items()},
                        detail={"total_weight": total})
 
 

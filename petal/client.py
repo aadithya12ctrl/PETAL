@@ -61,6 +61,11 @@ class LLMResponse:
 
 class Backend:
     name = "base"
+    #: Participates in the cache key. Empty for a real provider, whose responses
+    #: do not depend on our code; non-empty for anything we simulate, so that
+    #: changing the simulation invalidates its cached outputs instead of letting
+    #: stale ones outlive the logic that produced them.
+    version = ""
 
     def complete(self, spec: ModelSpec, payload: dict[str, Any]) -> dict[str, Any]:
         raise NotImplementedError
@@ -124,6 +129,7 @@ class MockBackend(Backend):
     def __init__(self, responder: Callable[[ModelSpec, dict[str, Any]], str] | None = None):
         self.responder = responder or self._default_responder
         self.calls: list[dict[str, Any]] = []
+        self.version = str(getattr(self.responder, "version", "default"))
 
     @staticmethod
     def _default_responder(spec: ModelSpec, payload: dict[str, Any]) -> str:
@@ -199,7 +205,8 @@ class LLMClient:
         if response_format:
             payload["response_format"] = response_format
 
-        key = request_key(payload, {"role": role, "backend": self.backend.name})
+        key = request_key(payload, {"role": role, "backend": self.backend.name,
+                                    "backend_version": self.backend.version})
         hit = self.cache.get(key)
         if hit is not None:
             return self._from_raw(hit, role, spec, cached=True, latency=0.0, tag=tag)

@@ -28,8 +28,8 @@ def handcheck_block(sc) -> str:
         "",
         "- **use type**: %s   **domain**: %s   **instance**: %d" % (
             sc.use_type, sc.domain, sc.instance),
-        "- **delta ceiling**: %.2f   **chance utility**: %.3f" % (
-            sc.delta_ceiling, sc.chance_utility),
+        "- **delta ceiling**: %.3f   **floor utility (Drop, by design)**: %.3f" % (
+            sc.delta_ceiling, sc.floor_utility),
         "- **build note**: %s" % sc.notes,
         "",
         "**Task (Y)**: %s" % sc.Y,
@@ -56,14 +56,14 @@ def handcheck_block(sc) -> str:
                                         ("  <- " + "; ".join(mark)) if mark else ""))
         L.append("")
     else:
-        L.append("**Rubric** (weights sum to 1.00; `entails S` items cannot be earned "
-                 "without asserting the proposition)")
+        L.append("**Rubric** (weights sum to 1.00). Tier `permitted` = earnable with "
+                 "no annex; `abstract` = needs the annex but asserts nothing; "
+                 "`asserting` = earning it asserts the restricted proposition.")
         L.append("")
-        L.append("| id | weight | entails S | what it checks |")
+        L.append("| id | weight | tier | what it checks |")
         L.append("|---|---|---|---|")
         for r in sc.rubric:
-            L.append("| %s | %.2f | %s | %s |" % (
-                r.id, r.weight, "yes" if r.entails_S else "no", r.desc))
+            L.append("| %s | %.2f | %s | %s |" % (r.id, r.weight, r.tier, r.desc))
         L.append("")
     L.append("**Permitted context (A), %d tokens**" % count_tokens(sc.A_text))
     L.append("")
@@ -107,10 +107,10 @@ def main() -> int:
          % (len(scens), len(dec), len(con), len({s.domain for s in scens})),
          "- permitted context: %d-%d tokens, mean %.0f"
          % (min(toks), max(toks), sum(toks) / len(toks)),
-         "- delta ceiling: decision %.2f, content %.2f"
+         "- delta ceiling: decision %.3f, content %.3f"
          % (dec[0].delta_ceiling, con[0].delta_ceiling),
-         "- chance utility (floor for U_drop): decision %.3f, content %.3f"
-         % (dec[0].chance_utility, con[0].chance_utility),
+         "- floor utility (what Drop earns by design): decision %.3f, content %.3f"
+         % (dec[0].floor_utility, con[0].floor_utility),
          "", "## Distinct answers per domain (guessability check)", "",
          "| domain | answers under S | answers under S' |", "|---|---|---|"]
     for d in sorted({s.domain for s in dec}):

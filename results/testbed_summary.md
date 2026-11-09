@@ -1,9 +1,9 @@
 # Testbed summary
 
 - scenarios: **60** (30 decision, 30 content) across 6 domains
-- permitted context: 1247-1412 tokens, mean 1326
-- delta ceiling: decision 1.00, content 0.40
-- chance utility (floor for U_drop): decision 0.333, content 0.000
+- permitted context: 1172-1328 tokens, mean 1250
+- delta ceiling: decision 1.000, content 0.429
+- floor utility (what Drop earns by design): decision 0.333, content 0.300
 
 ## Distinct answers per domain (guessability check)
 
