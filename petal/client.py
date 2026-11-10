@@ -164,6 +164,12 @@ class LLMClient:
                  prices: dict[str, Price] | None = None, cache_enabled: bool = True,
                  offline: bool = False):
         self.cfg = cfg
+        #: Responses that arrived with no usable text. Counted rather than
+        #: raised on, because one truncated completion is a fact about a hard
+        #: prompt while a high *rate* is a broken configuration -- and the
+        #: difference is only visible in aggregate. `empty_report()` is what
+        #: the runners check before they let a run stand.
+        self.empty: list[dict[str, Any]] = []
         self.cache = cache if cache is not None else DiskCache(enabled=cache_enabled)
         self.meter = meter or CostMeter(cfg.spend_limit_usd, warn_at_usd=cfg.warn_at_usd,
                                         prices=prices or {})
@@ -247,13 +253,42 @@ class LLMClient:
             prompt_tokens=pt, completion_tokens=ct, cost_usd=cost_in,
             cached=cached, tag=tag,
         )
+        finish = choices[0].get("finish_reason")
+        if not text:
+            # A reasoning model can spend its whole max_tokens budget on
+            # reasoning tokens and return finish_reason="length" with no
+            # content at all. Measured on qwen/qwen3.8-27b via one provider:
+            # 14 of 19 real calls. Nothing downstream notices -- the scorer
+            # reads "" as a wrong answer and records utility 0.0 -- so a
+            # misconfigured model yields a clean-looking dataset of zeros.
+            rt = (usage.get("completion_tokens_details") or {}).get("reasoning_tokens")
+            self.empty.append({
+                "role": role, "model": spec.model, "provider": raw.get("provider"),
+                "finish_reason": finish, "completion_tokens": ct,
+                "reasoning_tokens": rt, "max_tokens": spec.max_tokens,
+                "cached": cached, "tag": tag,
+            })
         return LLMResponse(
             text=text, role=role, model=spec.model,
             model_served=raw.get("model"), provider=raw.get("provider"),
             prompt_tokens=pt, completion_tokens=ct, cost_usd=cost,
             cached=cached, latency_s=latency,
-            finish_reason=choices[0].get("finish_reason"), raw=raw,
+            finish_reason=finish, raw=raw,
         )
+
+    def empty_report(self, n_calls: int) -> dict[str, Any]:
+        """Summary of empty completions, for a runner to act on."""
+        from collections import Counter
+        by = Counter((e["model"], e.get("provider"), e.get("finish_reason"))
+                     for e in self.empty)
+        starved = sum(1 for e in self.empty
+                      if e.get("finish_reason") == "length"
+                      and e.get("reasoning_tokens")
+                      and e["reasoning_tokens"] >= e.get("max_tokens", 0))
+        return {"n_empty": len(self.empty), "n_calls": n_calls,
+                "rate": (len(self.empty) / n_calls) if n_calls else 0.0,
+                "budget_starved": starved,
+                "by": {"%s | %s | %s" % k: v for k, v in by.items()}}
 
 
 # ------------------------------------------------------------------ catalogue

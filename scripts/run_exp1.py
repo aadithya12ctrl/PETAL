@@ -158,6 +158,27 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     write_runs(out, records)
 
+    # An empty completion is scored as a wrong answer, so a model that returns
+    # nothing produces a tidy dataset of zeros with no error anywhere. Check the
+    # rate before letting the run stand.
+    rep = client.empty_report(sum(r.calls for r in records))
+    if rep["n_empty"]:
+        print("\nEMPTY COMPLETIONS: %d of %d calls (%.1f%%)%s"
+              % (rep["n_empty"], rep["n_calls"], 100 * rep["rate"],
+                 "; %d exhausted max_tokens on reasoning" % rep["budget_starved"]
+                 if rep["budget_starved"] else ""))
+        for k, v in sorted(rep["by"].items()):
+            print("   %-60s %d" % (k, v))
+        if rep["rate"] > 0.02:
+            raise SystemExit(
+                "\nrefusing to report this run: %.1f%% of calls returned no text.\n"
+                "A completion with no content scores as a wrong answer, so these "
+                "would be indistinguishable from genuine failures.\n"
+                "If finish_reason is 'length' with reasoning_tokens at max_tokens, "
+                "the model is a reasoning model whose budget is too small: raise "
+                "max_tokens, set reasoning_effort, or pin an instruct variant."
+                % (100 * rep["rate"]))
+
     missing = sum(r.gap_scores_missing for r in records)
     if missing:
         msg = ("%d draft spans had no cached entailment score, so the gap scan "

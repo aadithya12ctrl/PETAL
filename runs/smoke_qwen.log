@@ -1,0 +1,9 @@
+scenarios 4 x arms 1 x models 1 = 4 runs, seed 20261109, backend openrouter
+projected upper bound for this invocation: $0.011
+spend before: $0.0171 of $9.00
+  agent_a   4/4  spend $0.0177  cache {'hits': 11, 'misses': 1}
+
+4 runs, 12 calls (1 paid), 7.5s
+spend after: $0.0177
+cache: {'hits': 11, 'misses': 1}
+-> runs\smoke_qwen.jsonl

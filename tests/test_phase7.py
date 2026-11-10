@@ -398,3 +398,45 @@ class TestLexicalGateNormalisation(unittest.TestCase):
                        channel="m1")
         self.assertTrue(d.leak)
         self.assertEqual(d.route, "lexical")
+
+
+class TestEmptyCompletionGuard(unittest.TestCase):
+    """A model that returns nothing scores as a model that answers wrongly.
+
+    Measured on qwen/qwen3.8-27b through one provider: 14 of 19 real calls came
+    back with finish_reason="length", the whole max_tokens budget spent on
+    reasoning tokens, and no content. The scorer read "" as a wrong answer and
+    recorded utility 0.0 for every one of them, with no error raised anywhere.
+    Over a full matrix that is a clean-looking dataset of zeros.
+    """
+
+    def _client(self, texts):
+        from petal.client import LLMClient, MockBackend
+        from petal.config import default_config
+        cfg = default_config()
+        seq = list(texts)
+
+        def responder(spec, payload):
+            return seq.pop(0) if seq else ""
+        c = LLMClient(cfg, backend=MockBackend(responder=responder),
+                      cache_enabled=False)
+        return c
+
+    def test_empty_completions_are_counted(self):
+        c = self._client(["hello", "", "world", ""])
+        for i in range(4):
+            c.chat("agent_a", [{"role": "user", "content": "q%d" % i}])
+        rep = c.empty_report(4)
+        self.assertEqual(rep["n_empty"], 2)
+        self.assertAlmostEqual(rep["rate"], 0.5)
+
+    def test_a_healthy_run_reports_nothing(self):
+        c = self._client(["a", "b", "c"])
+        for i in range(3):
+            c.chat("agent_a", [{"role": "user", "content": "q%d" % i}])
+        self.assertEqual(c.empty_report(3)["n_empty"], 0)
+
+    def test_whitespace_only_counts_as_empty(self):
+        c = self._client(["   \n  "])
+        c.chat("agent_a", [{"role": "user", "content": "q"}])
+        self.assertEqual(c.empty_report(1)["n_empty"], 1)
