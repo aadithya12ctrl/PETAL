@@ -15,3 +15,9 @@ pre-dry-run priors (2000 in / 300 out per agent call).
 
 Limit $9.00, headroom $3.241, fits: True
 
+## Observed per-call cost (uncached ledger entries)
+
+| role | calls | mean prompt tok | mean completion tok | mean $/call | observed $ |
+|---|---|---|---|---|---|
+| agent_a | 6943 | 745.9 | 52.7 | 0.0000000 | 0.00000 |
+

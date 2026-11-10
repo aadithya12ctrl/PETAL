@@ -295,3 +295,50 @@ class TestImpliedLeakage(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTypographicNormalisation(unittest.TestCase):
+    """Found on the first paid call, not by inspection.
+
+    gpt-oss-20b writes the file reference "TC-SCH-1050" with U+2011
+    NON-BREAKING HYPHEN. Rubric patterns are authored in ASCII, so
+    `re.escape(ref)` missed it and every content scenario quietly lost its
+    0.10 reference item -- a scorer marking a correct answer wrong because of
+    which dash the tokeniser preferred.
+    """
+
+    def _content(self):
+        from petal import paths
+        for d in json.loads((paths.SCENARIOS / "scenarios.json").read_text(
+                encoding="utf-8")):
+            sc = Scenario.from_dict(d)
+            if sc.use_type == "content":
+                return sc
+        raise AssertionError("no content scenario")
+
+    def test_non_breaking_hyphen_in_the_reference_still_scores(self):
+        from petal.scenarios.scorer import score
+        sc = self._content()
+        plain = "FINAL: Re file %s under %s." % (sc.ref, "x")
+        fancy = plain.replace("-", "‑")
+        self.assertEqual(score(sc, plain).rubric_hits["r1"],
+                         score(sc, fancy).rubric_hits["r1"])
+        self.assertGreater(score(sc, fancy).rubric_hits["r1"], 0.0)
+
+    def test_folds_dashes_quotes_and_spaces(self):
+        from petal.scenarios.schema import _norm
+        self.assertEqual(_norm("a–b"), "a-b")
+        self.assertEqual(_norm("a—b"), "a-b")
+        self.assertEqual(_norm("it’s"), "it's")
+        self.assertEqual(_norm("“q”"), '"q"')
+        self.assertEqual(_norm("a b"), "a b")
+
+    def test_option_matching_is_normalised_too(self):
+        from petal import paths
+        for d in json.loads((paths.SCENARIOS / "scenarios.json").read_text(
+                encoding="utf-8")):
+            sc = Scenario.from_dict(d)
+            if sc.use_type == "decision":
+                break
+        opt = sc.options[0]
+        self.assertTrue(opt.matched(opt.name.replace("-", "‑")))

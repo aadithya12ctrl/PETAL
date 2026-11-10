@@ -104,8 +104,28 @@ class RubricItem:
         return float(self.weight)
 
 
+#: Typographic characters models emit where the case file used ASCII. Measured
+#: on the first paid pilot: gpt-oss-20b writes the file reference "TC-SCH-1050"
+#: with U+2011 NON-BREAKING HYPHEN, so `re.escape(ref)` missed it and every
+#: content scenario silently lost the 0.10 reference item. A scorer that marks
+#: a correct answer wrong because of a hyphen is measuring the tokeniser.
+_PUNCT = {
+    0x2010: "-", 0x2011: "-", 0x2012: "-", 0x2013: "-", 0x2014: "-", 0x2212: "-",
+    0x2018: "'", 0x2019: "'", 0x201A: "'", 0x201B: "'",
+    0x201C: '"', 0x201D: '"', 0x201E: '"',
+    0x00A0: " ", 0x2007: " ", 0x202F: " ", 0x2009: " ", 0x200B: "",
+    0x2026: "...",
+}
+
+
 def _norm(text: str) -> str:
-    return re.sub(r"\s+", " ", text or "")
+    """Collapse whitespace and fold typographic punctuation to ASCII.
+
+    Applied to the *answer* only. Patterns are authored in ASCII, so folding
+    here makes a match depend on what the model said rather than on which
+    dash it chose.
+    """
+    return re.sub(r"\s+", " ", (text or "").translate(_PUNCT))
 
 
 # -------------------------------------------------------------------- options
