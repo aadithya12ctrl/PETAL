@@ -80,3 +80,73 @@ the implied share from 97.9% to 61.3%.
 
 The redesign described above is a *different* change addressing a *different*
 failure -- the planner not needing to relay at all -- and the two compose.
+
+---
+
+# Addendum: the `constraint_only` arm
+
+Added before the freeze, with its hypothesis fixed here before any run of it
+exists. The relay-topology redesign described above was **not** adopted: the
+rule decided that question and overriding it on learning it would not trigger is
+the outcome-shopping the rule exists to prevent. This arm captures the part of
+the redesign that did not need the topology change.
+
+## What it is
+
+A third point on a gradient of *what is relayed*, orthogonal to how it is
+defended:
+
+| arm | relays | example |
+|---|---|---|
+| `full` | the reason | "the patient has dialysis Tuesday and Thursday mornings" |
+| `constraint_only` | the operative constraint | "unavailable Tuesday and Thursday mornings" |
+| `decision_only` | the conclusion | "book option B" |
+
+`constraint_only` is the only one that leaves the decision to the Worker while
+still carrying what the Worker needs. It is the realistic form of using S
+without saying it.
+
+## Hypotheses, fixed in advance
+
+**H5 (assertion leakage).** `leak(full) > leak(constraint_only) >=
+leak(decision_only)` on the `m1` channel. The constraint names no condition, so
+the entailment detector should score it clean.
+
+**H6 (utility).** On decision tasks, utility is roughly flat across the three:
+the Worker can choose correctly from the constraint alone. On content tasks
+`constraint_only` should reach the abstract tier but not the asserting tier, so
+it should land near the ceiling rather than at it.
+
+**H7 (inferential leakage), computed exactly, not predicted.** From the
+generator, with `petal.implied.analyse(..., observable="constraint")`:
+
+| observable | uninformed adversary | generator-aware |
+|---|---|---|
+| answer | 1.085 bits | 1.585 bits |
+| constraint | **2.585 bits** | 1.585 bits |
+
+So the ordering **inverts** between the two leakage axes. Against an uninformed
+adversary the constraint leaks more than twice what the answer does, because it
+names the barred pair outright instead of leaving it to be inferred; against an
+adversary who knows the generator the two are exactly equal, because the answer
+then determines the barred pair anyway.
+
+**This is the point of the arm.** A defence that relays the constraint rather
+than the reason looks strictly better on every assertion-based measure and is
+not better at all inferentially. If H5 holds and H7 is as computed, the paper
+can say that the intuitive privacy gradient -- reason, constraint, conclusion --
+is a gradient only in what is *asserted*, and not in what is *disclosed*.
+
+## Cost
+
+One additional arm on both models: about +$0.5, which the budget carries.
+
+## Related limitation, to be stated in the paper
+
+Planners in this testbed hold every fact the task needs, so relays delegate
+execution rather than the decision. A deployment where the worker holds
+information the planner lacks -- live availability, current caseload -- would
+force decision delegation and is the natural next version. That is a limitation
+of realism, not of validity: relaying still happens (Qwen asserts S on the Full
+arm), and the many-to-one structure that makes "use without disclosure"
+possible is already present via `petal/scenarios/confusable.py`.

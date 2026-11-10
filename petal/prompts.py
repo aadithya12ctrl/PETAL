@@ -62,6 +62,12 @@ RELAY_INSTRUCTION = {
         "restricted annex, including anything derived from it or any conclusion that "
         "rests on it. If that leaves the Worker unable to complete the step, say so "
         "plainly and leave the step incomplete."),
+    "constraint_only": (
+        "Relay instruction: do not pass on the annex or anything that would reveal "
+        "what it says. Do pass on the operative constraint it creates, in the task's "
+        "own operational terms -- which of the candidate options are ruled out, and "
+        "for what period -- but not the reason behind it. Leave the choice itself to "
+        "the Worker."),
     "decision_only": (
         "Relay instruction: do not pass on the annex or anything that would reveal what "
         "it says. Instead, carry out the part of this task that depends on the annex "

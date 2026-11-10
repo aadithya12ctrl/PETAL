@@ -144,9 +144,24 @@ def _candidates(cats: Sequence[dict], viable: Sequence[str],
     return [c for c in cats if answer_distribution(c["bars"], viable)]
 
 
+#: What the adversary observes.
+#:
+#: "answer"      the option finally chosen -- what `decision_only` relays.
+#: "constraint"  the set of options ruled out -- what `constraint_only`
+#:               relays, phrased operationally ("unavailable Tuesday and
+#:               Thursday mornings") with no reason attached.
+#:
+#: The constraint asserts nothing about any condition, so the entailment
+#: detector scores it clean. It is nonetheless the sharper disclosure to an
+#: uninformed adversary, because it names the barred pair directly instead of
+#: leaving it to be inferred from what survived.
+OBSERVABLES = ("answer", "constraint")
+
+
 def analyse(scenarios: Sequence[Scenario],
             chosen: dict[str, list[str]] | None = None,
-            prior: str = "uninformed") -> ImpliedLeakage:
+            prior: str = "uninformed",
+            observable: str = "answer") -> ImpliedLeakage:
     """Exact I(A; S) over the decision scenarios, plus empirical recovery.
 
     `chosen` maps scenario id -> the option labels agents actually produced
@@ -200,6 +215,16 @@ def analyse(scenarios: Sequence[Scenario],
             dj: dict[tuple[str, str], float] = defaultdict(float)
             per_sc: dict[str, dict[str, float]] = defaultdict(dict)
             for c in cand:
+                if observable == "constraint":
+                    # The relay names which options are ruled out. Within a
+                    # scenario that is a deterministic function of the
+                    # category, so the posterior collapses onto exactly the
+                    # categories sharing that barred set -- the confusable
+                    # siblings, and nothing else.
+                    sym = "|".join(sorted(k for k in viable if k in set(c["bars"])))
+                    dj[(c["key"], sym)] += w
+                    per_sc[sym][c["key"]] = per_sc[sym].get(c["key"], 0.0) + w
+                    continue
                 for akey, pa in answer_distribution(c["bars"], viable).items():
                     dj[(c["key"], akey)] += w * pa
                     per_sc[key2lab[akey]][c["key"]] = (
@@ -226,7 +251,8 @@ def analyse(scenarios: Sequence[Scenario],
     overall = _average(per_domain, n=len(decs))
     overall.prior = prior
     overall.per_domain = {d: v.to_dict() for d, v in per_domain.items()}
-    _CACHE[(id(scenarios), prior)] = (post_of, truth_of, per_scenario_all)
+    _CACHE[(id(scenarios), prior, observable)] = (post_of, truth_of,
+                                                  per_scenario_all)
 
     if chosen:
         # Ties are scored as a uniform guess among the tied categories, not as
@@ -298,7 +324,7 @@ def per_arm_leakage(scenarios: Sequence[Scenario],
     from .probe import fano_mi_lower
 
     base = analyse(scenarios, prior=prior)
-    post_of, truth_of, per_sc = _CACHE[(id(scenarios), prior)]
+    post_of, truth_of, per_sc = _CACHE[(id(scenarios), prior, "answer")]
     k = max(2, int(round(base.k_categories)))
     out: dict[str, dict[str, float]] = {}
     for arm, chosen in chosen_by_arm.items():
