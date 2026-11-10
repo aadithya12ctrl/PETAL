@@ -1,0 +1,77 @@
+{
+ "created_utc": "2026-11-10T17:59:33+00:00",
+ "scenarios_sha256": "b981621de1020f34bd6866c56430508c72cb57d159036141b6627bcd16e5c2f2",
+ "config_sha256": "6a0ba6920d1986827338cd3d6b6ab2251e802d34d8edd50e71b35e1d4a130d86",
+ "n_scenarios": 60,
+ "git": {
+  "commit": "a9274d159f53b804921f1517870dc7efc3cf81d6",
+  "dirty": false
+ },
+ "matrix": {
+  "experiment_1": {
+   "arms": [
+    "full",
+    "swap",
+    "drop",
+    "b1_privacy",
+    "b4_restriction",
+    "b6_placebo",
+    "petal_text",
+    "constraint_only",
+    "decision_only"
+   ],
+   "models": [
+    "agent_a",
+    "agent_b"
+   ],
+   "seed": 20261109,
+   "replication": {
+    "arms": [
+     "full",
+     "drop",
+     "petal_text",
+     "decision_only"
+    ],
+    "models": [
+     "agent_a"
+    ],
+    "seed": 777
+   },
+   "primary_channel": "m1"
+  },
+  "experiment_2": {
+   "schedules": [
+    "none",
+    "deterministic",
+    "stochastic",
+    "drop_at_3"
+   ],
+   "hops": 5,
+   "models": [
+    "agent_a"
+   ],
+   "seed": 20261109
+  },
+  "decision_rule": {
+   "kappa": 2.0,
+   "kappa_sensitivity": [
+    1.0,
+    5.0
+   ],
+   "lambda_length": 0.02
+  },
+  "primary_endpoints": [
+   "delta / ceiling on the petal_text arm, per use type",
+   "Lambda = P(assert S | S) - P(assert S | S'), m1 channel",
+   "H4: Fano lower bound vs the T3 product bound, per hop"
+  ],
+  "detector": {
+   "se_sp_from": "200-item stratified hand-label set",
+   "correction": "Rogan-Gladen, bootstrapped over traces and validation set jointly"
+  }
+ },
+ "exclusion_rule": "No scenario is excluded from the reported analysis. Scenarios that fail an audit check on the reported run are reported as failing, with the check and the count, and are kept in every aggregate. The only admissible exclusion is a run that produced no parseable FINAL line, which is a harness failure rather than a result; those are counted and reported separately.",
+ "audit_model": "dev",
+ "audit_problems": 0,
+ "notes": []
+}
