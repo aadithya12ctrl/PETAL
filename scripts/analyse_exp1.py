@@ -19,9 +19,12 @@ from petal.config import Config, default_config
 from petal.labelling import read_sheet, validation_from_sheet
 
 PAIRS = [("petal_text", "b6_placebo"), ("petal_text", "b1_privacy"),
-         ("petal_text", "b4_restriction"), ("decision_only", "b4_restriction")]
-DELTA_ARMS = ["petal_text", "decision_only", "b6_placebo", "b1_privacy",
-              "b4_restriction"]
+         ("petal_text", "b4_restriction"), ("decision_only", "b4_restriction"),
+         # H5/H6: the relay-granularity gradient, fixed in
+         # results/prefreeze_rule.md before the arm was run
+         ("constraint_only", "decision_only"), ("constraint_only", "full")]
+DELTA_ARMS = ["petal_text", "constraint_only", "decision_only", "b6_placebo",
+              "b1_privacy", "b4_restriction"]
 
 
 def main() -> int:
@@ -292,6 +295,12 @@ def main() -> int:
                   "construction is published in this paper. Categories that would "
                   "leave two are then not candidates at all.", "",
                   "| quantity | uninformed | generator-aware |", "|---|---|---|",
+                  "| **I(constraint; S)**, what `constraint_only` relays | "
+                  "**%.3f bits** | **%.3f bits** |"
+                  % (IM.analyse(scen_list, prior="uninformed",
+                                observable="constraint").mutual_information_bits,
+                     IM.analyse(scen_list, prior="generator_aware",
+                                observable="constraint").mutual_information_bits),
                   "| candidate categories | %d | %d |"
                   % (il.k_categories, ga.k_categories),
                   "| H(S) | %.3f bits | %.3f bits |"
@@ -378,6 +387,29 @@ def main() -> int:
                             "-" if lk != lk else "%.3f" % lk,
                             arm_inf[arm]["recovery"],
                             arm_inf[arm]["mi_lower_bits"]))
+            cu = IM.analyse(scen_list, prior="uninformed", observable="constraint")
+            cg = IM.analyse(scen_list, prior="generator_aware",
+                            observable="constraint")
+            L += ["", "**The gradient inverts between the two axes (H7).** What "
+                  "`constraint_only` relays -- which options are ruled out, with no "
+                  "reason attached -- asserts no condition at all, so the entailment "
+                  "detector scores it clean. Computed exactly from the generator it "
+                  "carries **%.3f bits** to an uninformed adversary against the "
+                  "answer's %.3f, because it names the barred pair outright instead "
+                  "of leaving it to be inferred. To a generator-aware adversary the "
+                  "two are **exactly equal** at %.3f bits, since the answer then "
+                  "determines the barred pair anyway."
+                  % (cu.mutual_information_bits, il.mutual_information_bits,
+                     cg.mutual_information_bits), "",
+                  "So reason -> constraint -> conclusion is a gradient in what is "
+                  "*asserted*, not in what is *disclosed*. A defence that relays the "
+                  "constraint rather than the reason looks strictly better on every "
+                  "assertion-based measure and is not better at all inferentially. "
+                  "Hypothesis fixed in `results/prefreeze_rule.md` before the arm "
+                  "was run.", ""]
+            out_json["constraint_leakage"] = {"uninformed": cu.to_dict(),
+                                              "generator_aware": cg.to_dict()}
+
             L += ["", "Chance recovery is %.3f. Every arm that does the task "
                   "recovers S's category well above chance, including the ones the "
                   "assertion detector calls clean; the arms with no inferential leak "

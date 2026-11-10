@@ -1,7 +1,7 @@
 {
  "meta": {
-  "n_runs": 480,
-  "n_detections": 2160,
+  "n_runs": 540,
+  "n_detections": 2400,
   "models": [
    "agent_a"
   ],
@@ -12,6 +12,7 @@
    "b1_privacy",
    "b4_restriction",
    "b6_placebo",
+   "constraint_only",
    "decision_only",
    "drop",
    "full",
@@ -26,6 +27,7 @@
     "b1_privacy": 0.6000000000000001,
     "b4_restriction": 0.30000000000000004,
     "b6_placebo": 0.30000000000000004,
+    "constraint_only": 0.30000000000000004,
     "decision_only": 0.6000000000000001,
     "drop": 0.30000000000000004,
     "full": 1.0,
@@ -47,6 +49,12 @@
     },
     "b6_placebo": {
      "m1_draft": 1.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "constraint_only": {
+     "m1_draft": 0.0,
      "m1": 0.0,
      "m2": 0.0,
      "output": 0.0
@@ -91,6 +99,12 @@
      "hi": 0.0,
      "n": 30
     },
+    "constraint_only": {
+     "point": 0.0,
+     "lo": 0.0,
+     "hi": 0.0,
+     "n": 30
+    },
     "decision_only": {
      "point": 0.4285714285714287,
      "lo": 0.4285714285714287,
@@ -118,6 +132,12 @@
    },
    "delta_over_ceiling": {
     "petal_text": {
+     "point": 0.0,
+     "lo": 0.0,
+     "hi": 0.0,
+     "n": 30
+    },
+    "constraint_only": {
      "point": 0.0,
      "lo": 0.0,
      "hi": 0.0,
@@ -209,14 +229,29 @@
     }
    },
    "tests": {
+    "leak constraint_only vs full": {
+     "p": 1.862645149230957e-09,
+     "p_adj": 2.2351741790771484e-08,
+     "reject": true
+    },
     "utility petal_text vs b1_privacy": {
      "p": 4.320463057827488e-08,
-     "p_adj": 3.4563704462619906e-07,
+     "p_adj": 4.752509363610237e-07,
      "reject": true
     },
     "utility decision_only vs b4_restriction": {
      "p": 4.320463057827488e-08,
-     "p_adj": 3.4563704462619906e-07,
+     "p_adj": 4.752509363610237e-07,
+     "reject": true
+    },
+    "utility constraint_only vs decision_only": {
+     "p": 4.320463057827488e-08,
+     "p_adj": 4.752509363610237e-07,
+     "reject": true
+    },
+    "utility constraint_only vs full": {
+     "p": 4.320463057827488e-08,
+     "p_adj": 4.752509363610237e-07,
      "reject": true
     },
     "utility petal_text vs b6_placebo": {
@@ -248,6 +283,11 @@
      "p": 1.0,
      "p_adj": 1.0,
      "reject": false
+    },
+    "leak constraint_only vs decision_only": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
     }
    },
    "power": {
@@ -264,6 +304,7 @@
     "b1_privacy": 1.0,
     "b4_restriction": 0.3,
     "b6_placebo": 1.0,
+    "constraint_only": 1.0,
     "decision_only": 1.0,
     "drop": 0.26666666666666666,
     "full": 1.0,
@@ -285,6 +326,12 @@
     },
     "b6_placebo": {
      "m1_draft": 1.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "constraint_only": {
+     "m1_draft": 0.0,
      "m1": 0.0,
      "m2": 0.0,
      "output": 0.0
@@ -329,6 +376,12 @@
      "hi": 1.0,
      "n": 30
     },
+    "constraint_only": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 30
+    },
     "decision_only": {
      "point": 1.0,
      "lo": 1.0,
@@ -356,6 +409,12 @@
    },
    "delta_over_ceiling": {
     "petal_text": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 30
+    },
+    "constraint_only": {
      "point": 1.0,
      "lo": 1.0,
      "hi": 1.0,
@@ -447,14 +506,19 @@
     }
    },
    "tests": {
+    "leak constraint_only vs full": {
+     "p": 1.862645149230957e-09,
+     "p_adj": 2.2351741790771484e-08,
+     "reject": true
+    },
     "utility petal_text vs b4_restriction": {
      "p": 4.592833711753968e-06,
-     "p_adj": 3.6742669694031744e-05,
+     "p_adj": 5.052117082929365e-05,
      "reject": true
     },
     "utility decision_only vs b4_restriction": {
      "p": 4.592833711753968e-06,
-     "p_adj": 3.6742669694031744e-05,
+     "p_adj": 5.052117082929365e-05,
      "reject": true
     },
     "utility petal_text vs b6_placebo": {
@@ -483,6 +547,21 @@
      "reject": false
     },
     "leak decision_only vs b4_restriction": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "utility constraint_only vs decision_only": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "leak constraint_only vs decision_only": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "utility constraint_only vs full": {
      "p": 1.0,
      "p_adj": 1.0,
      "reject": false
@@ -539,6 +618,13 @@
      "mi_bits_design": 1.5849625007211563
     },
     "petal_text": {
+     "n": 30,
+     "recovery": 0.5,
+     "chance": 0.16666666666666666,
+     "mi_lower_bits": 0.423998453277475,
+     "mi_bits_design": 1.5849625007211563
+    },
+    "constraint_only": {
      "n": 30,
      "recovery": 0.5,
      "chance": 0.16666666666666666,
@@ -682,6 +768,234 @@
    "answer_entropy_bits": 1.5849625007211563,
    "empirical_recovery": 0.5,
    "empirical_n": 60,
+   "per_domain": {
+    "clinic_scheduling": {
+     "scope": "clinic_scheduling",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "generator_aware",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.6131471927654584
+    },
+    "hr_leave": {
+     "scope": "hr_leave",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "generator_aware",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.6131471927654584
+    },
+    "insurance_claims": {
+     "scope": "insurance_claims",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "generator_aware",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.6131471927654584
+    },
+    "legal_intake": {
+     "scope": "legal_intake",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "generator_aware",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.6131471927654584
+    },
+    "loan_prescreen": {
+     "scope": "loan_prescreen",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "generator_aware",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.6131471927654584
+    },
+    "travel_accessibility": {
+     "scope": "travel_accessibility",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "generator_aware",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.6131471927654584
+    }
+   },
+   "fraction_of_secret": 0.6131471927654585
+  }
+ },
+ "constraint_leakage": {
+  "uninformed": {
+   "scope": "within-domain mean",
+   "n_scenarios": 30,
+   "k_categories": 12,
+   "prior_entropy_bits": 3.5849625007211556,
+   "conditional_entropy_bits": 0.9999999999999998,
+   "mutual_information_bits": 2.584962500721156,
+   "map_recovery": 0.4999999999999999,
+   "chance_recovery": 0.08333333333333333,
+   "prior": "uninformed",
+   "answer_entropy_bits": 2.584962500721156,
+   "empirical_recovery": NaN,
+   "empirical_n": 0,
+   "per_domain": {
+    "clinic_scheduling": {
+     "scope": "clinic_scheduling",
+     "n_scenarios": 5,
+     "k_categories": 12,
+     "prior_entropy_bits": 3.5849625007211556,
+     "conditional_entropy_bits": 0.9999999999999998,
+     "mutual_information_bits": 2.584962500721156,
+     "map_recovery": 0.4999999999999999,
+     "chance_recovery": 0.08333333333333333,
+     "prior": "uninformed",
+     "answer_entropy_bits": 2.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.7210570543488702
+    },
+    "hr_leave": {
+     "scope": "hr_leave",
+     "n_scenarios": 5,
+     "k_categories": 12,
+     "prior_entropy_bits": 3.5849625007211556,
+     "conditional_entropy_bits": 0.9999999999999998,
+     "mutual_information_bits": 2.584962500721156,
+     "map_recovery": 0.4999999999999999,
+     "chance_recovery": 0.08333333333333333,
+     "prior": "uninformed",
+     "answer_entropy_bits": 2.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.7210570543488702
+    },
+    "insurance_claims": {
+     "scope": "insurance_claims",
+     "n_scenarios": 5,
+     "k_categories": 12,
+     "prior_entropy_bits": 3.5849625007211556,
+     "conditional_entropy_bits": 0.9999999999999998,
+     "mutual_information_bits": 2.584962500721156,
+     "map_recovery": 0.4999999999999999,
+     "chance_recovery": 0.08333333333333333,
+     "prior": "uninformed",
+     "answer_entropy_bits": 2.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.7210570543488702
+    },
+    "legal_intake": {
+     "scope": "legal_intake",
+     "n_scenarios": 5,
+     "k_categories": 12,
+     "prior_entropy_bits": 3.5849625007211556,
+     "conditional_entropy_bits": 0.9999999999999998,
+     "mutual_information_bits": 2.584962500721156,
+     "map_recovery": 0.4999999999999999,
+     "chance_recovery": 0.08333333333333333,
+     "prior": "uninformed",
+     "answer_entropy_bits": 2.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.7210570543488702
+    },
+    "loan_prescreen": {
+     "scope": "loan_prescreen",
+     "n_scenarios": 5,
+     "k_categories": 12,
+     "prior_entropy_bits": 3.5849625007211556,
+     "conditional_entropy_bits": 0.9999999999999998,
+     "mutual_information_bits": 2.584962500721156,
+     "map_recovery": 0.4999999999999999,
+     "chance_recovery": 0.08333333333333333,
+     "prior": "uninformed",
+     "answer_entropy_bits": 2.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.7210570543488702
+    },
+    "travel_accessibility": {
+     "scope": "travel_accessibility",
+     "n_scenarios": 5,
+     "k_categories": 12,
+     "prior_entropy_bits": 3.5849625007211556,
+     "conditional_entropy_bits": 0.9999999999999998,
+     "mutual_information_bits": 2.584962500721156,
+     "map_recovery": 0.4999999999999999,
+     "chance_recovery": 0.08333333333333333,
+     "prior": "uninformed",
+     "answer_entropy_bits": 2.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.7210570543488702
+    }
+   },
+   "fraction_of_secret": 0.7210570543488702
+  },
+  "generator_aware": {
+   "scope": "within-domain mean",
+   "n_scenarios": 30,
+   "k_categories": 6,
+   "prior_entropy_bits": 2.584962500721156,
+   "conditional_entropy_bits": 1.0,
+   "mutual_information_bits": 1.5849625007211563,
+   "map_recovery": 0.5,
+   "chance_recovery": 0.16666666666666666,
+   "prior": "generator_aware",
+   "answer_entropy_bits": 1.5849625007211563,
+   "empirical_recovery": NaN,
+   "empirical_n": 0,
    "per_domain": {
     "clinic_scheduling": {
      "scope": "clinic_scheduling",

@@ -1,7 +1,7 @@
 # Experiment 1: disclosure-use separability
 
 Runs: `exp1_mock_agent_a_seed20261109.jsonl`
-480 runs, 2160 detections, models ['agent_a'], seeds [20261109].
+540 runs, 2400 detections, models ['agent_a'], seeds [20261109].
 
 Every comparison is scenario-paired; the bootstrap resamples scenarios, not runs.
 
@@ -30,6 +30,7 @@ Leak is on the `m1` channel: the relay a defence is responsible for. `m1_draft` 
 | b1_privacy | 0.600 [0.600, 0.600] | 0.000 | 0.000 | 0.000 | 0.000 |
 | b4_restriction | 0.300 [0.300, 0.300] | 0.000 | 0.000 | 0.000 | 0.000 |
 | b6_placebo | 0.300 [0.300, 0.300] | 1.000 | 0.000 | 0.000 | 0.000 |
+| constraint_only | 0.300 [0.300, 0.300] | 0.000 | 0.000 | 0.000 | 0.000 |
 | decision_only | 0.600 [0.600, 0.600] | 0.000 | 0.000 | 0.000 | 0.000 |
 | drop | 0.300 [0.300, 0.300] | 0.000 | 0.000 | 0.000 | 0.000 |
 | full | 1.000 [1.000, 1.000] | 1.000 | 1.000 | 1.000 | 1.000 |
@@ -55,6 +56,7 @@ This is *not* the `delta_ceiling` the scenario schema publishes. That one is nor
 | arm | delta [95% CI] | delta / ceiling [95% CI] |
 |---|---|---|
 | petal_text | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
+| constraint_only | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
 | decision_only | 0.429 [0.429, 0.429] | 1.000 [1.000, 1.000] |
 | b6_placebo | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
 | b1_privacy | 0.429 [0.429, 0.429] | 1.000 [1.000, 1.000] |
@@ -78,10 +80,14 @@ One Holm family per use type, covering leak *and* utility tests together: the pa
 
 | test | p | p (Holm) | reject at 0.05 |
 |---|---|---|---|
+| leak constraint_only vs decision_only | 1.0000 | 1.0000 | no |
+| leak constraint_only vs full | 0.0000 | 0.0000 | yes |
 | leak decision_only vs b4_restriction | 1.0000 | 1.0000 | no |
 | leak petal_text vs b1_privacy | 1.0000 | 1.0000 | no |
 | leak petal_text vs b4_restriction | 1.0000 | 1.0000 | no |
 | leak petal_text vs b6_placebo | 1.0000 | 1.0000 | no |
+| utility constraint_only vs decision_only | 0.0000 | 0.0000 | yes |
+| utility constraint_only vs full | 0.0000 | 0.0000 | yes |
 | utility decision_only vs b4_restriction | 0.0000 | 0.0000 | yes |
 | utility petal_text vs b1_privacy | 0.0000 | 0.0000 | yes |
 | utility petal_text vs b4_restriction | 1.0000 | 1.0000 | no |
@@ -107,6 +113,7 @@ Leak is on the `m1` channel: the relay a defence is responsible for. `m1_draft` 
 | b1_privacy | 1.000 [1.000, 1.000] | 0.000 | 0.000 | 0.000 | 0.000 |
 | b4_restriction | 0.300 [0.133, 0.467] | 0.000 | 0.000 | 0.000 | 0.000 |
 | b6_placebo | 1.000 [1.000, 1.000] | 1.000 | 0.000 | 0.000 | 0.000 |
+| constraint_only | 1.000 [1.000, 1.000] | 0.000 | 0.000 | 0.000 | 0.000 |
 | decision_only | 1.000 [1.000, 1.000] | 0.000 | 0.000 | 0.000 | 0.000 |
 | drop | 0.267 [0.133, 0.433] | 0.000 | 0.000 | 0.000 | 0.000 |
 | full | 1.000 [1.000, 1.000] | 1.000 | 1.000 | 1.000 | 0.000 |
@@ -132,6 +139,7 @@ This is *not* the `delta_ceiling` the scenario schema publishes. That one is nor
 | arm | delta [95% CI] | delta / ceiling [95% CI] |
 |---|---|---|
 | petal_text | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| constraint_only | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
 | decision_only | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
 | b6_placebo | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
 | b1_privacy | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
@@ -155,13 +163,17 @@ One Holm family per use type, covering leak *and* utility tests together: the pa
 
 | test | p | p (Holm) | reject at 0.05 |
 |---|---|---|---|
+| leak constraint_only vs decision_only | 1.0000 | 1.0000 | no |
+| leak constraint_only vs full | 0.0000 | 0.0000 | yes |
 | leak decision_only vs b4_restriction | 1.0000 | 1.0000 | no |
 | leak petal_text vs b1_privacy | 1.0000 | 1.0000 | no |
 | leak petal_text vs b4_restriction | 1.0000 | 1.0000 | no |
 | leak petal_text vs b6_placebo | 1.0000 | 1.0000 | no |
-| utility decision_only vs b4_restriction | 0.0000 | 0.0000 | yes |
+| utility constraint_only vs decision_only | 1.0000 | 1.0000 | no |
+| utility constraint_only vs full | 1.0000 | 1.0000 | no |
+| utility decision_only vs b4_restriction | 0.0000 | 0.0001 | yes |
 | utility petal_text vs b1_privacy | 1.0000 | 1.0000 | no |
-| utility petal_text vs b4_restriction | 0.0000 | 0.0000 | yes |
+| utility petal_text vs b4_restriction | 0.0000 | 0.0001 | yes |
 | utility petal_text vs b6_placebo | 1.0000 | 1.0000 | no |
 
 ### Decision-implied leakage
@@ -179,6 +191,7 @@ Two adversaries, because the gap between them is the finding:
 
 | quantity | uninformed | generator-aware |
 |---|---|---|
+| **I(constraint; S)**, what `constraint_only` relays | **2.585 bits** | **1.585 bits** |
 | candidate categories | 12 | 6 |
 | H(S) | 3.585 bits | 2.585 bits |
 | H(S \| answer) | 2.500 bits | 1.000 bits |
@@ -217,9 +230,15 @@ The relay detector scores **assertion**. A relay that says "Option B" entails no
 | b1_privacy | 1.000 | 0.000 | 0.500 | 0.424 |
 | b6_placebo | 1.000 | 0.000 | 0.500 | 0.424 |
 | petal_text | 1.000 | 0.000 | 0.500 | 0.424 |
+| constraint_only | 1.000 | 0.000 | 0.500 | 0.424 |
 | decision_only | 1.000 | 0.000 | 0.500 | 0.424 |
 | b4_restriction | 0.300 | 0.000 | 0.150 | 0.000 |
 | drop | 0.267 | 0.000 | 0.133 | 0.000 |
+
+**The gradient inverts between the two axes (H7).** What `constraint_only` relays -- which options are ruled out, with no reason attached -- asserts no condition at all, so the entailment detector scores it clean. Computed exactly from the generator it carries **2.585 bits** to an uninformed adversary against the answer's 1.085, because it names the barred pair outright instead of leaving it to be inferred. To a generator-aware adversary the two are **exactly equal** at 1.585 bits, since the answer then determines the barred pair anyway.
+
+So reason -> constraint -> conclusion is a gradient in what is *asserted*, not in what is *disclosed*. A defence that relays the constraint rather than the reason looks strictly better on every assertion-based measure and is not better at all inferentially. Hypothesis fixed in `results/prefreeze_rule.md` before the arm was run.
+
 
 Chance recovery is 0.167. Every arm that does the task recovers S's category well above chance, including the ones the assertion detector calls clean; the arms with no inferential leak are the arms that failed the task. **On a decision task the two axes trade against each other by construction** -- an arm cannot score high utility and low inferential leakage at once, because doing the task *is* the leak.
 

@@ -43,6 +43,7 @@ SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
 REFERENCE = "#8a8980"      # the theoretical bound: a reference, not a series
 
 ARM_LABEL = {
+    "constraint_only": "Constraint-only",
     "full": "Full", "swap": "Swap", "drop": "Drop", "b1_privacy": "B1 privacy",
     "b4_restriction": "B4 drop-the-fact", "b6_placebo": "B6 placebo",
     "petal_text": "Petal (text)", "decision_only": "Decision-only",
@@ -159,8 +160,8 @@ def fig_delta(d: dict) -> None:
     claim about. Each panel's caption carries the raw ceiling it was divided by.
     """
     uts = [u for u in ("decision", "content") if u in d["use_types"]]
-    order = ["petal_text", "decision_only", "b6_placebo", "b1_privacy",
-             "b4_restriction"]
+    order = ["petal_text", "constraint_only", "decision_only", "b6_placebo",
+             "b1_privacy", "b4_restriction"]
     if not uts:
         return
     key = ("delta_over_ceiling"

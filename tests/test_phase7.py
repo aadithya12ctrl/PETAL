@@ -513,3 +513,120 @@ class TestReasoningToggle(unittest.TestCase):
             self.assertTrue(spec.provider_order, role)
             self.assertFalse(spec.allow_fallbacks, role)
             self.assertTrue(spec.quantization, role)
+
+
+class TestConstraintOnlyArm(unittest.TestCase):
+    """The third point on the relay-granularity gradient.
+
+    Hypotheses H5-H7 are fixed in results/prefreeze_rule.md before the arm was
+    ever run. H7 is computed rather than predicted, and it inverts the
+    intuitive ordering.
+    """
+
+    def setUp(self):
+        from petal import paths
+        self.scens = [Scenario.from_dict(d) for d in json.loads(
+            (paths.SCENARIOS / "scenarios.json").read_text(encoding="utf-8"))]
+
+    def test_arm_is_registered_with_a_relay_instruction(self):
+        from petal.arms import ARMS, ANNEX_OF
+        from petal.prompts import RELAY_INSTRUCTION
+        self.assertIn("constraint_only", ARMS)
+        self.assertIn("constraint_only", RELAY_INSTRUCTION)
+        # it needs S in context to derive the constraint from
+        self.assertEqual(ANNEX_OF.get("constraint_only", "S"), "S")
+
+    def test_instruction_asks_for_the_constraint_and_leaves_the_choice(self):
+        from petal.prompts import RELAY_INSTRUCTION
+        t = RELAY_INSTRUCTION["constraint_only"].lower()
+        self.assertIn("ruled out", t)
+        self.assertIn("not the reason", t.replace("but not the reason", "not the reason"))
+        # the distinction from decision_only: the Worker still decides
+        self.assertIn("leave the choice", t)
+
+    def test_constraint_leaks_more_than_the_answer_to_an_uninformed_adversary(self):
+        a = IM.analyse(self.scens, prior="uninformed", observable="answer")
+        c = IM.analyse(self.scens, prior="uninformed", observable="constraint")
+        self.assertGreater(c.mutual_information_bits,
+                           a.mutual_information_bits + 0.5)
+
+    def test_they_are_equal_to_a_generator_aware_adversary(self):
+        a = IM.analyse(self.scens, prior="generator_aware", observable="answer")
+        c = IM.analyse(self.scens, prior="generator_aware", observable="constraint")
+        self.assertAlmostEqual(c.mutual_information_bits,
+                               a.mutual_information_bits, places=6)
+
+    def test_constraint_leaves_exactly_the_sibling_uncertainty(self):
+        # the barred pair identifies the pair; what survives is the two
+        # confusable conditions sharing it, i.e. exactly one bit
+        c = IM.analyse(self.scens, prior="generator_aware", observable="constraint")
+        self.assertAlmostEqual(c.conditional_entropy_bits, 1.0, places=6)
+
+    def test_unknown_observable_falls_back_to_the_answer(self):
+        a = IM.analyse(self.scens, observable="answer")
+        b = IM.analyse(self.scens, observable="not-a-thing")
+        self.assertAlmostEqual(a.mutual_information_bits, b.mutual_information_bits)
+
+    def test_the_arm_runs_end_to_end_on_the_mock(self):
+        from petal.arms import run_arm
+        from petal.client import LLMClient, MockBackend
+        from petal.config import default_config
+        from petal.mockagents import ScriptedAgents
+        sc = [s for s in self.scens if s.use_type == "decision"][0]
+        cl = LLMClient(default_config(),
+                       backend=MockBackend(responder=ScriptedAgents(self.scens)),
+                       cache_enabled=False)
+        rec = run_arm(cl, sc, "constraint_only")
+        self.assertEqual(rec.arm, "constraint_only")
+        self.assertTrue(rec.m1.strip())
+        self.assertEqual(len(rec.hops), 3)
+
+
+class TestConstraintOnlyMockSemantics(unittest.TestCase):
+    """The mock must exercise the arm, not fall through to another path.
+
+    When the arm was added the scripted planner had no branch for it, so it
+    took the undefended path and restated the annex: the arm's end-to-end test
+    passed while measuring `full`. A mock that silently impersonates a
+    different arm is worse than no mock.
+    """
+
+    def setUp(self):
+        from petal import paths
+        from petal.client import LLMClient, MockBackend
+        from petal.config import default_config
+        from petal.mockagents import ScriptedAgents
+        self.scens = [Scenario.from_dict(d) for d in json.loads(
+            (paths.SCENARIOS / "scenarios.json").read_text(encoding="utf-8"))]
+        self.cl = LLMClient(default_config(),
+                            backend=MockBackend(responder=ScriptedAgents(self.scens)),
+                            cache_enabled=False)
+        self.sc = [s for s in self.scens if s.use_type == "decision"][0]
+
+    def _run(self, arm):
+        from petal.arms import run_arm
+        return run_arm(self.cl, self.sc, arm)
+
+    def test_the_relay_names_no_condition(self):
+        rec = self._run("constraint_only")
+        self.assertEqual(G.LexicalScorer(self.sc.S.paraphrases).hits(rec.m1), [])
+
+    def test_it_does_not_relay_a_recommendation(self):
+        # that is decision_only's job; this arm leaves the choice downstream
+        from petal.mockagents import RECO_RE
+        self.assertIsNone(RECO_RE.search(self._run("constraint_only").m1))
+        self.assertIsNotNone(RECO_RE.search(self._run("decision_only").m1))
+
+    def test_the_relay_does_name_the_ruled_out_routes(self):
+        from petal.mockagents import BLOCKED_RE
+        self.assertIsNotNone(BLOCKED_RE.search(self._run("constraint_only").m1))
+
+    def test_the_worker_still_reaches_the_right_answer(self):
+        rec = self._run("constraint_only")
+        self.assertEqual(rec.chosen, self.sc.correct_under_S)
+        self.assertAlmostEqual(rec.utility, 1.0)
+
+    def test_it_differs_from_the_full_arm(self):
+        full, con = self._run("full"), self._run("constraint_only")
+        self.assertNotEqual(full.m1, con.m1)
+        self.assertTrue(G.LexicalScorer(self.sc.S.paraphrases).hits(full.m1))

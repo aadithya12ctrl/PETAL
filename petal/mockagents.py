@@ -13,6 +13,8 @@ different path:
     b4_restriction   omits everything annex-derived, guesses
     b6_placebo       same draft as full, gaps filled with irrelevant text
     petal_text       same draft as full, gaps refilled from permitted context
+    constraint_only  relays which options are ruled out, names no condition,
+                     and leaves the choice to the Worker
     decision_only    relays its conclusion plus the abstraction, never the annex
 
 Because `full`, `b6_placebo` and `petal_text` share the planner prompt, they
@@ -43,6 +45,8 @@ MOCK_ACTION = {
 
 REF_RE = re.compile(r"TASK BRIEF - file (\S+)")
 RECO_RE = re.compile(r"recommends?\s+option\s+([A-D])\b", re.I)
+#: the constraint_only relay: routes named as unavailable, with no reason given
+BLOCKED_RE = re.compile(r"must not be used:\s*([A-D](?:\s*,\s*[A-D])*)", re.I)
 
 
 class ScriptedAgents:
@@ -178,11 +182,17 @@ class ScriptedAgents:
         L.append("No further action taken at this hop.")
         return "\n".join(L)
 
+    @staticmethod
+    def _labels(sc: Scenario) -> dict[str, str]:
+        """option key -> label, for naming ruled-out routes without the reason."""
+        return {o.attrs.get("key", o.label): o.label for o in sc.options}
+
     # ------------------------------------------------------------- planner
     def _planner(self, sc: Scenario, user: str, system: str) -> str:
         privacy = "PRIVACY REQUIREMENT" in system
         restricted = "omit from your message any fact that depends" in user
         decision_only = "relay only your conclusion" in user
+        constraint_only = "which of the candidate options are ruled out" in user
 
         annex = None
         if "RESTRICTED ANNEX TO" in user:
@@ -203,6 +213,15 @@ class ScriptedAgents:
                      "so the step cannot be completed on the merits.")
             if sc.use_type == "decision":
                 L.append("Recommend option %s." % self._guess(sc, "b4"))
+        elif constraint_only:
+            # The operative constraint, in the task's own terms, with no
+            # condition named and -- unlike decision_only -- no recommendation,
+            # so the Worker still makes the choice.
+            blocked = [lab for key, lab in self._labels(sc).items()
+                       if key in set(secret.blocks)]
+            L.append("The following routes are unavailable for this subject and "
+                     "must not be used: %s." % ", ".join(sorted(blocked)))
+            L.append("Choose among the remaining routes yourself on the merits.")
         elif privacy or decision_only:
             L.append("The subject has a standing %s which rules out some of the "
                      "routes." % self._abstraction(sc))
@@ -243,6 +262,11 @@ class ScriptedAgents:
             if re.search(r"\b" + re.escape(abstraction) + r"\b", m1, re.I):
                 L.append("Grounds are characterised as a standing %s." % abstraction)
                 break
+        b = BLOCKED_RE.search(m1)
+        if b:
+            # carry the constraint, still without any reason attached
+            L.append("Routes ruled out upstream and must not be used: %s."
+                     % b.group(1).upper())
         m = RECO_RE.search(m1)
         if m:
             L.append("Planner recommends option %s." % m.group(1).upper())
@@ -255,7 +279,20 @@ class ScriptedAgents:
         dom = DOMAINS[sc.domain]
         if sc.use_type == "decision":
             m = RECO_RE.search(m2)
-            lab = m.group(1).upper() if m else self._guess(sc, "reporter")
+            if m:
+                lab = m.group(1).upper()
+            else:
+                b = BLOCKED_RE.search(m2)
+                lab = None
+                if b:
+                    # the constraint_only path: no recommendation arrived, so
+                    # the choice is made here, from the constraint alone --
+                    # which is the whole point of that arm
+                    out = {x.strip().upper() for x in b.group(1).split(",")}
+                    left = [o for o in sc.viable_without_S if o not in out]
+                    if len(left) == 1:
+                        lab = left[0]
+                lab = lab or self._guess(sc, "reporter")
             return ("Decision recorded for file %s.\nFINAL: %s - %s"
                     % (sc.ref, lab, self._option_name(sc, lab)))
 
