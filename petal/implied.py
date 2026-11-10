@@ -155,7 +155,9 @@ def _candidates(cats: Sequence[dict], viable: Sequence[str],
 #: detector scores it clean. It is nonetheless the sharper disclosure to an
 #: uninformed adversary, because it names the barred pair directly instead of
 #: leaving it to be inferred from what survived.
-OBSERVABLES = ("answer", "constraint")
+#: "reason"      the restricted fact itself -- what `full` relays. The
+#:               adversary reads it off, so I = H(S) and nothing is left.
+OBSERVABLES = ("reason", "constraint", "answer")
 
 
 def analyse(scenarios: Sequence[Scenario],
@@ -215,6 +217,12 @@ def analyse(scenarios: Sequence[Scenario],
             dj: dict[tuple[str, str], float] = defaultdict(float)
             per_sc: dict[str, dict[str, float]] = defaultdict(dict)
             for c in cand:
+                if observable == "reason":
+                    # the relay states the condition, so the observable is the
+                    # category itself and the posterior is a point mass
+                    dj[(c["key"], c["key"])] += w
+                    per_sc[c["key"]][c["key"]] = w
+                    continue
                 if observable == "constraint":
                     # The relay names which options are ruled out. Within a
                     # scenario that is a deterministic function of the
@@ -402,3 +410,81 @@ def _summarise(joint: dict[tuple[str, str], float], *, scope: str,
         mutual_information_bits=max(0.0, h_s - h_s_given_a),
         map_recovery=map_rec, chance_recovery=1.0 / k if k else float("nan"),
         prior=prior, answer_entropy_bits=_entropy(pa.values()))
+
+
+# ------------------------------------------------- measured on the relay text
+def _candidate_propositions(sc: Scenario, prior: str) -> tuple[list[str], list[str]]:
+    """(category keys, their propositions) an adversary would rank for `sc`."""
+    lab2key = _label_to_key(sc.domain)
+    if _eliminated_key(sc, lab2key) is None:
+        return [], []
+    viable = [lab2key[o.label] for o in sc.options
+              if o.label in set(sc.viable_without_S)]
+    cand = _candidates(DOMAINS[sc.domain]["categories"], viable, prior)
+    return ([c["key"] for c in cand],
+            [c["proposition"].format(name="The subject") for c in cand])
+
+
+def relay_leakage(runs: Sequence[dict], scenarios: Sequence[Scenario], *,
+                  channel: str = "m1", prior: str = "generator_aware"
+                  ) -> dict[str, dict[str, float]]:
+    """Per arm, what an adversary recovers from **the relay text itself**.
+
+    Why this is not the same as `per_arm_leakage`
+    ---------------------------------------------
+    `per_arm_leakage` reads the final answer, so every arm that gets the task
+    right scores identically -- the Full arm, which states the restricted fact
+    verbatim in its relay, came out level with `decision_only`, which states
+    only "book option B". That cannot be right, and it made the inferential
+    axis unable to separate the arms, which was the whole reason for adding it.
+
+    The adversary here reads the relay the defence is actually responsible for.
+    It ranks the scenario's candidate propositions against the message by
+    TF-IDF character n-grams and takes the top one. A weak ranker is fine:
+    Fano's inequality holds for *any* estimator, so a poor one yields a looser
+    but still valid lower bound on I(relay; S). It is a lower bound in a second
+    way too -- it reads surface text, so it cannot make the structural
+    inference that naming the barred routes narrows S to two conditions. The
+    exact computation in `analyse(observable=...)` covers that, and the two are
+    reported side by side.
+    """
+    from .probe import fano_mi_lower
+    from .probe import MatchProbe
+
+    by_id = {s.id: s for s in scenarios}
+    probes: dict[str, tuple[MatchProbe, list[str]]] = {}
+    hits: dict[str, float] = defaultdict(float)
+    tot: dict[str, int] = defaultdict(int)
+    ks: dict[str, list[int]] = defaultdict(list)
+
+    for r in runs:
+        sc = by_id.get(r.get("scenario_id"))
+        if sc is None or sc.use_type != "decision":
+            continue
+        if sc.id not in probes:
+            keys, props = _candidate_propositions(sc, prior)
+            probes[sc.id] = (MatchProbe(props) if len(props) >= 2 else None, keys)
+        probe, keys = probes[sc.id]
+        if probe is None:
+            continue
+        truth = None
+        for c in DOMAINS[sc.domain]["categories"]:
+            if list(c["paraphrases"]) == list(sc.S.paraphrases):
+                truth = c["key"]
+                break
+        if truth is None or truth not in keys:
+            continue
+        arm = r.get("arm", "?")
+        tot[arm] += 1
+        ks[arm].append(len(keys))
+        text = (r.get(channel) or "").strip()
+        if text and keys[probe.top1(text)] == truth:
+            hits[arm] += 1.0
+
+    out: dict[str, dict[str, float]] = {}
+    for arm, n in tot.items():
+        k = max(2, int(round(sum(ks[arm]) / len(ks[arm]))))
+        rec = hits[arm] / n
+        out[arm] = {"n": n, "k": k, "recovery": rec, "chance": 1.0 / k,
+                    "mi_lower_bits": fano_mi_lower(1.0 - rec, k)}
+    return out

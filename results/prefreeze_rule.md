@@ -150,3 +150,75 @@ force decision delegation and is the natural next version. That is a limitation
 of realism, not of validity: relaying still happens (Qwen asserts S on the Full
 arm), and the many-to-one structure that makes "use without disclosure"
 possible is already present via `petal/scenarios/confusable.py`.
+
+---
+
+## Correction to H7, before the freeze
+
+**The H7 interpretation above is wrong and is corrected here.** The numbers were
+computed from the generator, not observed from any run, so correcting their
+reading now is not outcome-shopping. The erroneous text is left in place above
+so the change is visible.
+
+### What was wrong
+
+Two faults, one of substance and one of framing.
+
+**It used the uninformed column as the headline.** Mutual information under a
+prior the adversary has *wrong* is not leakage. The scenarios are drawn from
+the generator's distribution, so the generator-aware column is the true
+I(relay; S). The earlier empirical check already said so: recovery on real
+answers was 0.967 under both priors, matching the generator-aware figure and
+not the uninformed one.
+
+**It never compared the constraint against `full`.** It compared the constraint
+against the *answer*, found them equal, and concluded the constraint "is not
+better at all". But the gradient claim is about reason -> constraint ->
+conclusion, and the first step is the one that moves.
+
+### The corrected table, under the true distribution
+
+| relay | what it carries | I(relay; S) | H(S \| relay) | adversary recovers |
+|---|---|---|---|---|
+| `full` | the reason | **2.585 bits** (all of S) | **0** | 1.000 |
+| `constraint_only` | the constraint | 1.585 bits | **1.000 bit** | 0.500 |
+| `decision_only` | the conclusion | 1.585 bits | 1.000 bit | 0.500 |
+
+### The corrected claim
+
+**Disclosure drops from reason to constraint, then stays flat from constraint to
+conclusion.** Relaying the constraint keeps a full bit hidden -- which of the
+two confusable conditions applies -- that relaying the reason gives away
+entirely. It is no better than relaying the conclusion, but it is no *worse*
+either, and it leaves the choice with the worker.
+
+That is a point **for** constraint relays, not against them: they cost nothing
+in disclosure over a bare decision relay while keeping the decision downstream
+where a relay architecture wants it.
+
+The uninformed column is kept in the reports, labelled as what a naive
+adversary would believe rather than as leakage.
+
+### H7 restated
+
+**H7 (corrected).** Under the generator-aware adversary,
+`I(full; S) > I(constraint_only; S) = I(decision_only; S)`, with the gap
+between the first two equal to log2 of the number of conditions sharing a
+barred pair -- exactly 1 bit for this testbed's two-per-pair design.
+
+### H8 (new): the computed value is a floor, not a prediction
+
+The 1.585 bits assumes the relay carries *only* the barred pair. Real models
+will write "unavailable Tuesday and Thursday mornings due to ongoing treatment"
+-- a partial reason the assertion detector may well score clean while it
+narrows S further. So:
+
+* the computed figure is a **lower bound** on what a real `constraint_only`
+  relay discloses;
+* `petal.implied.relay_leakage` measures the realised figure from the relay
+  text itself, per arm;
+* **the gap between them is a finding**: how much more a real model discloses
+  than the minimum the task requires.
+
+Expected: measured recovery on `constraint_only` relays at or above 0.500, and
+below `full`'s. No prediction is made about where in that range it lands.
