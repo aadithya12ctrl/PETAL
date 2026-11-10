@@ -251,19 +251,25 @@ Computed exactly from the generator, under the **generator-aware** adversary. Th
 
 The figures above assume the relay carries *only* what its arm is named for. A real `constraint_only` relay may write "unavailable Tuesday and Thursday mornings due to ongoing treatment" -- a partial reason the assertion detector can score clean while it narrows S further. So the computed value is a **floor**, and the measured one is what an adversary reading the relay text actually recovers.
 
-| arm | computed floor | measured on `m1` | bits (Fano LB, conservative) | chance |
-|---|---|---|---|---|
-| full | 1.000 | **0.900** | 1.238 | 0.167 |
-| constraint_only | 0.500 | **0.167** | 0.000 | 0.167 |
-| decision_only | 0.500 | **0.200** | 0.000 | 0.167 |
-| petal_text | - | **0.167** | 0.000 | 0.167 |
-| b6_placebo | - | **0.200** | 0.000 | 0.167 |
-| b4_restriction | - | **0.200** | 0.000 | 0.167 |
-| b1_privacy | - | **0.200** | 0.000 | 0.167 |
-| drop | - | **0.233** | 0.000 | 0.167 |
-| swap | - | **0.033** | 0.000 | 0.167 |
+| arm | computed floor | names a condition | disclosed (bits) | recovers S | learned adversary (bits, LB) |
+|---|---|---|---|---|---|
+| full | 2.585 bits | 1.000 | **2.585** | 1.000 | 1.238 |
+| constraint_only | 1.585 bits | 0.000 | **1.585** | 0.500 | 0.000 |
+| decision_only | 1.585 bits | 0.000 | **1.585** | 0.500 | 0.000 |
+| petal_text | - | 0.000 | **1.585** | 0.500 | 0.000 |
+| b6_placebo | - | 0.000 | **1.585** | 0.500 | 0.000 |
+| b4_restriction | - | 0.000 | **1.585** | 0.150 | 0.000 |
+| b1_privacy | - | 0.000 | **1.585** | 0.500 | 0.000 |
+| drop | - | 0.000 | **1.585** | 0.133 | 0.000 |
+| swap | - | 1.000 | **2.585** | 0.000 | 0.000 |
 
-The adversary ranks the scenario's candidate propositions against the relay by TF-IDF and takes the top one. A weak ranker is admissible: Fano holds for any estimator, so a poor one gives a looser but still valid lower bound. Bits are evaluated at the one-sided Clopper-Pearson upper limit of the error rate, not at the point estimate -- at this n a relay carrying nothing can beat chance by ranking luck, and Fano would turn that into bits. It is a floor in a second way too -- it reads surface text, so it cannot make the structural inference that naming the barred routes narrows S to the conditions sharing them. The computed column covers that, and the two belong side by side.
+**Disclosed (bits) is the headline.** The relay is read for what it names -- a condition, by surface form -- and the exact posterior is applied: naming a condition identifies it; naming none leaves the adversary with what the answer implies, measured per arm rather than assumed.
+
+**The last column is not the headline and must not be read as one.** It is a TF-IDF ranker over the candidate propositions: a *learned* adversary, limited by having a handful of scenarios to generalise from. It reports 0 bits for `decision_only`, where the true figure is 1.585, because it cannot learn that "option B" means a particular barred pair -- and the Clopper-Pearson bound then correctly rounds a weak probe down to nothing. Taken as the result it would say every arm but `full` leaks exactly zero, which is the opposite of H7. It is kept as a valid lower bound from one concrete attacker, and nothing more.
+
+`disclosed` and `recovers S` come apart on exactly one arm. The first is disclosure to an adversary who *believes* the relay, the second how often they are then right about S. On `swap` the relay names S', so a believing adversary's uncertainty collapses while their accuracy is zero -- which is what the Swap control exists to show. Everywhere else the relay is truthful about S and the two agree.
+
+Both remain lower bounds in a stated way: a partial reason the surface-form list does not cover -- "due to ongoing treatment" -- narrows S further and is counted by neither. That gap is H8, and an LLM adversary reading the permitted file alongside the relay is what would measure it.
 
 This is measured on **`m1`, the relay**, not on the final answer. An earlier version read the answer, which made every arm that got the task right score identically -- the Full arm, which states the restricted fact verbatim, came out level with `decision_only`, which states only which option to book. That left the inferential axis unable to separate the arms, which was the reason for having it.
 

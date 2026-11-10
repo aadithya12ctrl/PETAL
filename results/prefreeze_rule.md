@@ -222,3 +222,34 @@ narrows S further. So:
 
 Expected: measured recovery on `constraint_only` relays at or above 0.500, and
 below `full`'s. No prediction is made about where in that range it lands.
+
+
+## Scope of the inferential axis
+
+Inferential leakage is reported for **decision tasks only**. The adversary's
+candidate set is built from the option and barred-pair structure, which content
+scenarios do not have: there is no set of options for a correct answer to
+select among, so there is nothing for the answer or a constraint to imply.
+Content tasks therefore report assertion leakage alone, and the paper states
+that rather than leaving the asymmetry to be noticed.
+
+## How the relay is read, and by whom
+
+Three adversaries, deliberately, because each misses something the next
+catches:
+
+1. **Parse-then-exact** (`implied.relay_leakage_exact`) -- the headline. The
+   relay is read for a named condition by surface form, and the exact
+   generator-aware posterior is applied. Naming a condition identifies it;
+   naming none leaves what the answer implies, measured per arm.
+2. **Learned, n-limited** (`implied.relay_leakage`) -- a TF-IDF ranker. A valid
+   Fano lower bound from one concrete attacker, and nothing more. It reports 0
+   bits for `decision_only` where the truth is 1.585, because it cannot learn
+   from a handful of scenarios that a given option implies a given barred pair.
+   **It is not the headline**: read as one it would say every arm but `full`
+   leaks exactly zero, the opposite of H7.
+3. **LLM adversary** (`scripts/llm_adversary.py`) -- the realistic attacker,
+   given the permitted file and the relay and asked to pick from the candidate
+   list. It is the only one that catches a partial reason such as "due to
+   ongoing treatment", which the first two miss and the assertion detector
+   scores clean. **This is what measures H8's gap.** About $0.02 for 50 relays.

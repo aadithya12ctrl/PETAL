@@ -498,3 +498,120 @@ def relay_leakage(runs: Sequence[dict], scenarios: Sequence[Scenario], *,
                     "error_rate_ci_hi": e_hi,
                     "mi_lower_bits": fano_mi_lower(e_hi, k)}
     return out
+
+
+def observed_in_relay(sc: Scenario, text: str, prior: str = "generator_aware"
+                      ) -> dict[str, Any]:
+    """Which candidate conditions the relay *names*, by surface form.
+
+    The robust half of reading a relay. Naming a condition identifies it
+    outright; naming none leaves the adversary with whatever the task output
+    implies. The middle case -- a relay that states the operative constraint --
+    needs no parsing at all, because under the generator-aware adversary the
+    constraint and the answer carry exactly the same information (both pin S to
+    the conditions sharing a barred pair), so it falls through to the same
+    posterior.
+    """
+    from .gaps import LexicalScorer
+    keys, _props = _candidate_propositions(sc, prior)
+    named = [k for k in keys
+             if LexicalScorer(_forms_of(sc.domain, k)).hits(text or "")]
+    return {"named": named, "k": len(keys)}
+
+
+def _forms_of(domain: str, key: str) -> list[str]:
+    for c in DOMAINS[domain]["categories"]:
+        if c["key"] == key:
+            return list(c["paraphrases"])
+    return []
+
+
+def relay_leakage_exact(runs: Sequence[dict], scenarios: Sequence[Scenario], *,
+                        channel: str = "m1", prior: str = "generator_aware"
+                        ) -> dict[str, dict[str, float]]:
+    """Measured relay leakage, read by the adversary the generator licenses.
+
+    Why the TF-IDF probe cannot be the headline
+    -------------------------------------------
+    `relay_leakage` ranks propositions against the relay text. On real relays
+    it reports 0 bits for `decision_only` -- but the true figure is 1.585,
+    because the answer pins S to the conditions sharing a barred pair. The
+    leakage is there; a TF-IDF matcher over a handful of scenarios simply
+    cannot learn "option B means that pair", and the Clopper-Pearson bound then
+    correctly rounds a weak probe down to nothing. Reported as the headline it
+    would say every arm but `full` leaks exactly zero, which is the opposite of
+    H7.
+
+    So the relay is *parsed* for what it actually contains, and the exact
+    posterior is applied to that:
+
+        names a condition  -> the adversary reads S off; a *wrong* condition
+                              (the Swap arm) misleads them instead
+        names none         -> they fall back on what the answer implies, which
+                              is measured per arm rather than assumed
+
+    Still a lower bound, and in a stated way: a partial reason the surface-form
+    list does not cover ("due to ongoing treatment") narrows S further and is
+    not counted here. That gap is H8, and an LLM adversary is what measures it.
+
+    `mi_bits` and `recovery` answer different questions and come apart on
+    exactly one arm. `mi_bits` is disclosure to an adversary who *believes* the
+    relay; `recovery` is how often they are then right about S. For every arm
+    whose relay is truthful about S the two agree. On `swap` they do not: the
+    relay names S', so a believing adversary's uncertainty collapses (2.585
+    bits "disclosed") while their accuracy is zero. That divergence is what the
+    Swap control exists to show, and `names_true_condition` makes it legible --
+    1.000 on `full`, 0.000 on `swap`, with `names_condition` 1.000 on both.
+    """
+    by_id = {s.id: s for s in scenarios}
+    base = analyse(scenarios, prior=prior)
+    h_prior = base.prior_entropy_bits
+    _post, truth_of, per_sc = _CACHE[(id(scenarios), prior, "answer")]
+
+    # how much the answer alone gives away, per arm, measured not assumed
+    by_arm: dict[str, dict[str, list[str]]] = {}
+    for r in runs:
+        if r.get("use_type") == "decision" and r.get("chosen"):
+            by_arm.setdefault(r["arm"], {}).setdefault(
+                r["scenario_id"], []).append(r["chosen"])
+    ans = per_arm_leakage(scenarios, by_arm, prior=prior)
+
+    agg: dict[str, dict[str, float]] = {}
+    for r in runs:
+        sc = by_id.get(r.get("scenario_id"))
+        if sc is None or sc.use_type != "decision" or sc.id not in per_sc:
+            continue
+        arm = r.get("arm", "?")
+        a = agg.setdefault(arm, {"n": 0.0, "named_true": 0.0, "named_other": 0.0,
+                                 "hit": 0.0, "h_cond": 0.0})
+        a["n"] += 1
+        obs = observed_in_relay(sc, r.get(channel) or "", prior)
+        truth = truth_of.get(sc.id)
+        if obs["named"]:
+            if truth in obs["named"]:
+                a["named_true"] += 1
+                a["hit"] += 1.0 / len(obs["named"])
+                a["h_cond"] += math.log2(len(obs["named"]))
+            else:
+                # a condition is named and it is not the true one: the
+                # adversary is confidently wrong. The Swap arm, exactly.
+                a["named_other"] += 1
+                a["h_cond"] += math.log2(max(1, len(obs["named"])))
+        else:
+            rec = (ans.get(arm) or {}).get("recovery", base.map_recovery)
+            a["hit"] += rec
+            a["h_cond"] += per_sc[sc.id].conditional_entropy_bits
+
+    out: dict[str, dict[str, float]] = {}
+    for arm, a in agg.items():
+        n = a["n"] or 1.0
+        out[arm] = {
+            "n": int(n),
+            "names_condition": (a["named_true"] + a["named_other"]) / n,
+            "names_true_condition": a["named_true"] / n,
+            "recovery": a["hit"] / n,
+            "chance": base.chance_recovery,
+            "mi_bits": max(0.0, h_prior - a["h_cond"] / n),
+            "h_prior_bits": h_prior,
+        }
+    return out

@@ -260,6 +260,7 @@ def main() -> int:
             scen_list = list(scen_index.values())
             arm_inf = IM.per_arm_leakage(scen_list, by_arm)
             relay_m = IM.relay_leakage(all_runs, scen_list)
+            relay_x = IM.relay_leakage_exact(all_runs, scen_list)
             out_json["use_types"][ut] = out_json["use_types"].get(ut, {})
             ils = {pr: IM.analyse(scen_list, chosen=chosen, prior=pr)
                    for pr in IM.PRIORS}
@@ -431,30 +432,49 @@ def main() -> int:
                   "clean while it narrows S further. So the computed value is a "
                   "**floor**, and the measured one is what an adversary reading the "
                   "relay text actually recovers.", "",
-                  "| arm | computed floor | measured on `m1` | bits (Fano LB, "
-                  "conservative) | chance |", "|---|---|---|---|---|"]
+                  "| arm | computed floor | names a condition | disclosed "
+                  "(bits) | recovers S | learned adversary (bits, LB) |",
+                  "|---|---|---|---|---|---|"]
             for arm, obs in [("full", "reason"), ("constraint_only", "constraint"),
                              ("decision_only", "answer"), ("petal_text", None),
                              ("b6_placebo", None), ("b4_restriction", None),
                              ("b1_privacy", None), ("drop", None), ("swap", None)]:
-                m = relay_m.get(arm)
-                if not m:
+                x = relay_x.get(arm)
+                if not x:
                     continue
-                floor = ("%.3f" % grad[obs].map_recovery) if obs else "-"
-                L.append("| %s | %s | **%.3f** | %.3f | %.3f |"
-                         % (arm, floor, m["recovery"], m["mi_lower_bits"],
-                            m["chance"]))
-            L += ["", "The adversary ranks the scenario's candidate propositions "
-                  "against the relay by TF-IDF and takes the top one. A weak ranker "
-                  "is admissible: Fano holds for any estimator, so a poor one gives "
-                  "a looser but still valid lower bound. Bits are evaluated at the "
-                  "one-sided Clopper-Pearson upper limit of the error rate, not at "
-                  "the point estimate -- at this n a relay carrying nothing can beat "
-                  "chance by ranking luck, and Fano would turn that into bits. It is a floor in a second "
-                  "way too -- it reads surface text, so it cannot make the "
-                  "structural inference that naming the barred routes narrows S to "
-                  "the conditions sharing them. The computed column covers that, "
-                  "and the two belong side by side.", "",
+                m = relay_m.get(arm) or {}
+                floor = ("%.3f bits" % grad[obs].mutual_information_bits) if obs else "-"
+                L.append("| %s | %s | %.3f | **%.3f** | %.3f | %.3f |"
+                         % (arm, floor, x["names_condition"], x["mi_bits"],
+                            x["recovery"], m.get("mi_lower_bits", float("nan"))))
+            L += ["", "**Disclosed (bits) is the headline.** The relay is read for "
+                  "what it names -- a condition, by surface form -- and the exact "
+                  "posterior is applied: naming a condition identifies it; naming "
+                  "none leaves the adversary with what the answer implies, measured "
+                  "per arm rather than assumed.", "",
+                  "**The last column is not the headline and must not be read as "
+                  "one.** It is a TF-IDF ranker over the candidate propositions: a "
+                  "*learned* adversary, limited by having a handful of scenarios to "
+                  "generalise from. It reports 0 bits for `decision_only`, where the "
+                  "true figure is %.3f, because it cannot learn that \"option B\" "
+                  "means a particular barred pair -- and the Clopper-Pearson bound "
+                  "then correctly rounds a weak probe down to nothing. Taken as the "
+                  "result it would say every arm but `full` leaks exactly zero, "
+                  "which is the opposite of H7. It is kept as a valid lower bound "
+                  "from one concrete attacker, and nothing more."
+                  % grad["answer"].mutual_information_bits, "",
+                  "`disclosed` and `recovers S` come apart on exactly one arm. The "
+                  "first is disclosure to an adversary who *believes* the relay, the "
+                  "second how often they are then right about S. On `swap` the relay "
+                  "names S', so a believing adversary's uncertainty collapses while "
+                  "their accuracy is zero -- which is what the Swap control exists "
+                  "to show. Everywhere else the relay is truthful about S and the "
+                  "two agree.", "",
+                  "Both remain lower bounds in a stated way: a partial reason the "
+                  "surface-form list does not cover -- \"due to ongoing treatment\" "
+                  "-- narrows S further and is counted by neither. That gap is H8, "
+                  "and an LLM adversary reading the permitted file alongside the "
+                  "relay is what would measure it.", "",
                   "This is measured on **`m1`, the relay**, not on the final answer. "
                   "An earlier version read the answer, which made every arm that got "
                   "the task right score identically -- the Full arm, which states "

@@ -715,3 +715,64 @@ class TestGradientObservables(unittest.TestCase):
         gap = (self._g("reason").mutual_information_bits
                - self._g("constraint").mutual_information_bits)
         self.assertAlmostEqual(gap, 1.0, places=6)
+
+
+class TestExactRelayAdversary(unittest.TestCase):
+    """The TF-IDF probe's zero means "this probe found nothing", not "nothing
+    leaks". Reported as the headline it inverts H7: decision_only's true
+    disclosure is 1.585 bits and the probe calls it 0.
+    """
+
+    def setUp(self):
+        from petal import paths
+        self.scens = [Scenario.from_dict(d) for d in json.loads(
+            (paths.SCENARIOS / "scenarios.json").read_text(encoding="utf-8"))]
+        self.dec = [s for s in self.scens if s.use_type == "decision"][:10]
+
+    def _runs(self, arm, textfn, chosen=True):
+        return [{"scenario_id": s.id, "arm": arm, "use_type": "decision",
+                 "m1": textfn(s),
+                 "chosen": s.correct_under_S if chosen else None}
+                for s in self.dec]
+
+    def test_a_relay_naming_nothing_still_discloses_the_answer_implied_bits(self):
+        out = IM.relay_leakage_exact(
+            self._runs("decision_only", lambda s: "Book option B."), self.scens)
+        g = IM.analyse(self.scens, prior="generator_aware", observable="answer")
+        self.assertAlmostEqual(out["decision_only"]["mi_bits"],
+                               g.mutual_information_bits, places=6)
+        self.assertGreater(out["decision_only"]["mi_bits"], 1.0)
+
+    def test_a_relay_naming_the_condition_discloses_all_of_S(self):
+        out = IM.relay_leakage_exact(
+            self._runs("full", lambda s: s.S.statement), self.scens)
+        self.assertAlmostEqual(out["full"]["names_condition"], 1.0)
+        self.assertAlmostEqual(out["full"]["mi_bits"],
+                               out["full"]["h_prior_bits"], places=6)
+        self.assertAlmostEqual(out["full"]["recovery"], 1.0, places=6)
+
+    def test_naming_the_wrong_condition_misleads_the_adversary(self):
+        # the Swap arm: uncertainty collapses, accuracy is zero
+        out = IM.relay_leakage_exact(
+            self._runs("swap", lambda s: s.S_prime.statement), self.scens)
+        self.assertAlmostEqual(out["swap"]["names_condition"], 1.0)
+        self.assertAlmostEqual(out["swap"]["names_true_condition"], 0.0)
+        self.assertAlmostEqual(out["swap"]["recovery"], 0.0)
+
+    def test_it_orders_the_arms_as_H7_says(self):
+        runs = (self._runs("full", lambda s: s.S.statement)
+                + self._runs("decision_only", lambda s: "Book option B.")
+                + self._runs("constraint_only",
+                             lambda s: "Some routes are unavailable."))
+        out = IM.relay_leakage_exact(runs, self.scens)
+        self.assertGreater(out["full"]["mi_bits"],
+                           out["constraint_only"]["mi_bits"])
+        self.assertAlmostEqual(out["constraint_only"]["mi_bits"],
+                               out["decision_only"]["mi_bits"], places=6)
+
+    def test_the_weak_probe_disagrees_which_is_the_point(self):
+        runs = self._runs("decision_only", lambda s: "Book option B.")
+        weak = IM.relay_leakage(runs, self.scens)["decision_only"]
+        exact = IM.relay_leakage_exact(runs, self.scens)["decision_only"]
+        self.assertEqual(weak["mi_lower_bits"], 0.0)
+        self.assertGreater(exact["mi_bits"], 1.0)
