@@ -16,7 +16,7 @@ models for under ~$8.
 | 2 | 60 scenarios + deterministic scorers | **done** |
 | 3 | 3-hop relay harness, 8 arms, gap detection, petal, decision-only relay | **done** |
 | 4 | NLI detector + judge escalation + Rogan–Gladen + human tooling | **done** |
-| 5 | Exp 2 stochastic ladder + probes | pending |
+| 5 | Exp 2 stochastic ladder + probes | **done** |
 | 6 | Analysis + figures | pending |
 | 7 | Dry runs → live Exp 1 / Exp 2 | pending |
 | 8 | Paper draft | pending |
@@ -359,3 +359,72 @@ indistinguishable without replicates. The check now requires three or more runs
 per scenario, and the real evidence is a population-level one-sided binomial test
 of Drop-arm accuracy against the 1/3 floor (offline: 8/30, p = 0.83, i.e. no
 evidence the files carry the answer).
+
+## Phase 5: the stochastic ladder (Experiment 2)
+
+Five-hop chain, four schedules, 20 scenarios. The ladder lives in
+[petal/ladder.py](petal/ladder.py), the chain in [petal/chain.py](petal/chain.py),
+the probes in [petal/probe.py](petal/probe.py).
+
+**Alphabets come from the testbed, not from the paper's example.** Eta depends on
+k, so quoting a contraction factor against an invented alphabet would be quoting a
+bound the experiment never runs under. The medical-kind ladder is
+k = (23, 12, 4, 2) with p = (0.8, 0.7, 0.6, 0.6), giving
+
+| rung | k | p | eta |
+|---|---|---|---|
+| exact proposition | 23 | 0.80 | 0.7909 |
+| clinical area | 12 | 0.70 | 0.6727 |
+| kind | 4 | 0.60 | 0.4667 |
+| placeholder | 2 | 0.60 | 0.2000 |
+
+Product **0.0497**, against the 0.039 PETAL_v2 §4.3 quotes for an illustrative
+(20, 5, 3, 2). A larger k raises eta for fixed p, so the real ladder contracts
+slightly *less* than the paper's example — worth stating rather than quoting the
+nicer number.
+
+**The composition bug, which was the crux of this phase.** The first version
+re-coarsened the *original* S at every hop. That makes the hops conditionally
+independent given S rather than a Markov chain, and T3's product bound does not
+apply to it — only the single rung's eta does. So the experiment would have been
+testing a bound it was not running under. `ladder.coarsen` now maps the previous
+*emitted* symbol to the next rung, so when rung 0's randomised response emits the
+wrong condition, rung 1 reports *that* condition's area. The error propagates,
+which is what makes the composition contract.
+
+**Scope, which the paper insists on.** T3 bounds the slot that carries S. The
+chain therefore keeps the slot explicit (`CARRIED NOTE`), so the probe measures
+the slot and the detector measures the free text the agent wrote around it,
+instead of conflating them. `rewrite_slot` appends the note when an agent dropped
+it rather than treating that hop as having transmitted nothing — which would
+flatter the decay.
+
+**Two probe corrections.** H4 compares a measured lower bound against a
+theoretical upper bound, and both sides needed care:
+
+1. *Fano returns 0.065 bits for an error rate of 1.0 at k = 23*, because an
+   estimator that is reliably wrong is informative. True in general, but here an
+   error at or above chance means the slot was empty and the probe guessed —
+   reporting 0.065 bits would put a floor under every decay curve. Clamped to 0
+   at chance.
+2. *At n = 20 the noise on an error rate is about ±0.09.* The point estimate
+   breached the bound at stochastic hop 1 (LB 3.609 vs UB 3.578) purely because
+   2 errors came up instead of the expected 4. H4 now fires on Fano evaluated at
+   the one-sided 95% Clopper-Pearson upper limit of the error rate, and that row
+   is reported as "point est. only".
+
+**A data bug the tests caught**, with a silent consequence: `pregnancy` (HR) was
+kind `personal` while `pregnancy_travel` was `medical`, though both assert "the
+subject is pregnant". Exp 2 selects medical-kind scenarios, the proposition
+lookup resolved to the `personal` category, and the ladder then emitted a rung-2
+symbol outside the alphabet of the rung it was built for. `pregnancy` is now
+medical, `category_for` takes the expected kind, and a test asserts that every
+shared proposition's categories agree on kind *and* area.
+
+Offline decay (mock agents, so the numbers demonstrate the instrument, not a
+result): the `none` schedule holds at 4.52 bits across all four hops; the
+stochastic ladder falls to 0 by hop 2 and its bound falls 3.58 → 2.41 → 1.12 →
+0.23; `random_dropout`, matched on per-hop truthfulness, decays more slowly
+(1.77 → 0.88 → 0.52 → 0.12) because silence preserves category identity when it
+does speak, whereas coarsening destroys it immediately. That contrast is the
+control the plan asked for.

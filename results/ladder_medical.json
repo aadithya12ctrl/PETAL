@@ -1,0 +1,51 @@
+{
+  "kind": "medical",
+  "rungs": [
+    {
+      "rung": 0,
+      "name": "exact",
+      "k": 23,
+      "p": 0.8,
+      "eta": 0.7909,
+      "epsilon": 4.477,
+      "cumulative_eta": 0.790909
+    },
+    {
+      "rung": 1,
+      "name": "area",
+      "k": 12,
+      "p": 0.7,
+      "eta": 0.6727,
+      "epsilon": 3.245,
+      "cumulative_eta": 0.532066
+    },
+    {
+      "rung": 2,
+      "name": "kind",
+      "k": 4,
+      "p": 0.6,
+      "eta": 0.4667,
+      "epsilon": 1.504,
+      "cumulative_eta": 0.248298
+    },
+    {
+      "rung": 3,
+      "name": "placeholder",
+      "k": 2,
+      "p": 0.6,
+      "eta": 0.2,
+      "epsilon": 0.405,
+      "cumulative_eta": 0.04966
+    },
+    {
+      "rung": 4,
+      "name": "dropped",
+      "k": 1,
+      "p": 1.0,
+      "eta": 0.0,
+      "epsilon": 0.0,
+      "cumulative_eta": 0.0
+    }
+  ],
+  "eta_product_randomised": 0.0496595041322314
+}

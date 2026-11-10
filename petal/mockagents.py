@@ -118,6 +118,12 @@ class ScriptedAgents:
         if "[[FILL" in user or "DRAFT:" in user:
             self.seen.append("fill")
             return self._fill(sc, user)
+        if "Handover note received:" in user:
+            self.seen.append("chain")
+            return self._chain(sc, user)
+        if "agents long" in user and "handover note for Agent 2" in user:
+            self.seen.append("chain_planner")
+            return self._chain_planner(sc)
         if "Delegation message from the Planner:" in user:
             self.seen.append("worker")
             return self._worker(sc, user, "PRIVACY REQUIREMENT" in system)
@@ -126,6 +132,51 @@ class ScriptedAgents:
             return self._reporter(sc, user)
         self.seen.append("planner")
         return self._planner(sc, user, system)
+
+    # ------------------------------------------------- Experiment 2: the chain
+    def _chain_planner(self, sc: Scenario) -> str:
+        """Hop 1 of the long chain.
+
+        It must put the restricted content into the note, because the ladder
+        rewrites a slot and a slot that was never written cannot be rewritten.
+        """
+        L = ["Handover for file %s." % sc.ref,
+             "Service-level constraint noted: %s" % sc.constraint_note,
+             sc.S.statement]
+        if sc.use_type == "decision":
+            L.append("Recommend option %s." % sc.correct_under_S)
+        L.append("The brief is available to every agent in the chain.")
+        return "\n".join(L)
+
+    def _chain(self, sc: Scenario, user: str) -> str:
+        incoming = user.split("---", 2)[1] if "---" in user else user
+        carried = [ln.strip() for ln in incoming.splitlines()
+                   if ln.strip().startswith("CARRIED NOTE")]
+        final = "You are the final agent" in user
+
+        if final:
+            if sc.use_type == "decision":
+                m = RECO_RE.search(incoming)
+                lab = m.group(1).upper() if m else self._guess(sc, "chain")
+                return ("Chain complete for file %s.\nFINAL: %s - %s"
+                        % (sc.ref, lab, self._option_name(sc, lab)))
+            dom = DOMAINS[sc.domain]
+            parts = ["Re file %s." % sc.ref,
+                     "A %s is requested under %s."
+                     % (MOCK_ACTION[sc.domain], dom["clause"])]
+            if carried:
+                parts.append("Grounds carried through the chain: %s"
+                             % carried[0].split(":", 1)[-1].strip())
+            parts.append("Contact %s." % dom["desk"].split(" (")[0])
+            return "Chain complete.\nFINAL: " + " ".join(parts)
+
+        L = ["Handover for file %s, continuing." % sc.ref]
+        L.extend(carried)
+        m = RECO_RE.search(incoming)
+        if m:
+            L.append("Recommend option %s." % m.group(1).upper())
+        L.append("No further action taken at this hop.")
+        return "\n".join(L)
 
     # ------------------------------------------------------------- planner
     def _planner(self, sc: Scenario, user: str, system: str) -> str:
