@@ -89,20 +89,32 @@ def fig_frontier(d: dict) -> None:
     uts = [u for u in ("decision", "content") if u in d["use_types"]]
     if not uts:
         return
-    fig, axes = plt.subplots(1, len(uts), figsize=(4.6 * len(uts), 4.0),
+    # A third panel wherever inferential leakage exists. The detector scores
+    # assertion, so an arm relaying only its conclusion sits at leak 0 on the
+    # first two panels while handing over most of S. Plotting assertion
+    # leakage alone would make exactly the claim the analysis refutes.
+    panels = [(u, "assertion") for u in uts]
+    panels += [(u, "inferential") for u in uts
+               if d["use_types"][u].get("arm_inferential")]
+    fig, axes = plt.subplots(1, len(panels), figsize=(4.6 * len(panels), 4.0),
                              facecolor=SURFACE, squeeze=False)
-    for j, ut in enumerate(uts):
+    for j, (ut, axis) in enumerate(panels):
         ax = axes[0][j]
         p = d["use_types"][ut]
-        style(ax, xlabel="leak rate on the relay (m1)",
+        style(ax, xlabel=("leak rate on the relay (m1)" if axis == "assertion"
+                          else "adversary recovers S from the answer"),
               ylabel="task utility" if j == 0 else "",
-              title="%s-type" % ut.capitalize())
+              title="%s-type, %s leak" % (ut.capitalize(), axis))
         # Arms frequently coincide exactly -- every defended arm sits at leak 0
         # with the same utility -- so one label per *point*, listing the arms
         # that share it. Drawn per arm, the labels overprint into mush.
         groups: dict[tuple[float, float], list[str]] = {}
+        inf = p.get("arm_inferential") or {}
         for arm, u in p["utility"].items():
-            lk = p["leak"].get(arm, {}).get("m1")
+            if axis == "assertion":
+                lk = p["leak"].get(arm, {}).get("m1")
+            else:
+                lk = (inf.get(arm) or {}).get("recovery")
             if lk is None or lk != lk:
                 continue
             groups.setdefault((round(lk, 3), round(u, 3)), []).append(arm)
@@ -119,14 +131,19 @@ def fig_frontier(d: dict) -> None:
         ax.set_ylim(-0.05, 1.34)
         ax.set_xticks([0.0, 0.25, 0.5, 0.75, 1.0])
         ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
-        fl = p.get("phi_floor")
-        if fl is not None and fl == fl and fl > 0:
-            ax.axvline(fl, color=REFERENCE, linestyle=(0, (4, 3)), linewidth=1.2)
-            ax.annotate("inference floor", (fl, 1.28), fontsize=8,
-                        color=INK_MUTED, xytext=(4, 0),
-                        textcoords="offset points")
-    fig.suptitle("Leak-utility position of each arm", color=INK, fontsize=12,
-                 x=0.012, ha="left", y=1.02)
+        if axis == "assertion":
+            fl = p.get("phi_floor")
+            ref, lab = (fl, "inference floor") if (
+                fl is not None and fl == fl and fl > 0) else (None, "")
+        else:
+            ch = next((v.get("chance") for v in inf.values() if v), None)
+            ref, lab = (ch, "chance") if ch else (None, "")
+        if ref:
+            ax.axvline(ref, color=REFERENCE, linestyle=(0, (4, 3)), linewidth=1.2)
+            ax.annotate(lab, (ref, 1.28), fontsize=8, color=INK_MUTED,
+                        xytext=(4, 0), textcoords="offset points")
+    fig.suptitle("Leak-utility position of each arm, on both leakage axes",
+                 color=INK, fontsize=12, x=0.012, ha="left", y=1.02)
     save(fig, "fig1_frontier")
 
 

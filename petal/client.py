@@ -204,6 +204,12 @@ class LLMClient:
         }
         if response_format:
             payload["response_format"] = response_format
+        # Reasoning tokens bill as output. A reasoning model on its default
+        # effort can cost several times what max_tokens implies, so the effort
+        # is pinned per role and participates in the cache key below -- two
+        # runs at different efforts are different runs.
+        if getattr(spec, "reasoning_effort", ""):
+            payload["reasoning"] = {"effort": spec.reasoning_effort}
 
         key = request_key(payload, {"role": role, "backend": self.backend.name,
                                     "backend_version": self.backend.version})

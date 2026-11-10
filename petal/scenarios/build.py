@@ -122,7 +122,11 @@ def _pick_instance(dom: dict[str, Any], inst: int) -> tuple[dict, dict, str, str
     """-> (cat_S, cat_S_prime, eliminated_key, answer_S_key, answer_Sp_key)."""
     keys = [o[0] for o in dom["options"]]
     cats = dom["categories"]
-    cat_s = cats[inst % len(cats)]
+    # Stride, not inst % len: the category list interleaves siblings that bar
+    # the same options, so consecutive indices are near-duplicates. A stride
+    # co-prime with the list length spreads the five instances across different
+    # bar-pairs AND across both members of a pair.
+    cat_s = cats[(inst * 5) % len(cats)]
     bars_s = set(cat_s["bars"])
     left = [k for k in keys if k not in bars_s]
     if len(left) != 2:

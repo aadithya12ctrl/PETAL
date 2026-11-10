@@ -220,14 +220,65 @@ class TestImpliedLeakage(unittest.TestCase):
         g = IM.analyse(self.scens, prior="generator_aware")
         self.assertGreater(g.fraction_of_secret, u.fraction_of_secret)
         self.assertGreater(g.map_recovery, u.map_recovery)
-        # the published construction makes the answer almost the whole secret
-        self.assertGreater(g.fraction_of_secret, 0.9)
+
+    def test_the_answer_does_not_determine_S(self):
+        """The property `confusable.py` exists to create.
+
+        With one category per bar-pair the answer named the category almost
+        uniquely: H(S | answer) was 0.03 bits and the decision-only arm could
+        not fail, because there was no way to use S without revealing it. Each
+        pair now carries two distinct conditions, so a full bit of uncertainty
+        survives the answer and 'use without disclosure' is possible at all.
+        """
+        g = IM.analyse(self.scens, prior="generator_aware")
+        self.assertGreater(g.conditional_entropy_bits, 0.9)
+        self.assertLess(g.map_recovery, 0.75)
+
+    def test_leakage_is_capped_by_the_answers_own_entropy(self):
+        # I(answer; S) cannot exceed H(answer): enlarging the category pool
+        # changes the *share* of S implied, never the bits
+        for pr in IM.PRIORS:
+            r = IM.analyse(self.scens, prior=pr)
+            self.assertLessEqual(r.mutual_information_bits,
+                                 r.answer_entropy_bits + 1e-9)
+
+    def test_every_bar_pair_carries_at_least_two_conditions(self):
+        from collections import Counter
+        from petal.scenarios.templates import DOMAINS
+        for dom, v in DOMAINS.items():
+            counts = Counter(frozenset(c["bars"]) for c in v["categories"])
+            self.assertGreaterEqual(min(counts.values()), 2, dom)
+
+    def test_sibling_propositions_are_all_distinct(self):
+        # two categories sharing a proposition would make ladder.category_for
+        # emit a symbol outside its own alphabet
+        from petal.scenarios.templates import DOMAINS
+        props = [c["proposition"] for v in DOMAINS.values()
+                 for c in v["categories"]]
+        self.assertEqual(len(props), len(set(props)))
+
+    def test_every_category_has_a_ladder_area(self):
+        from petal.ladder import AREA_OF
+        from petal.scenarios.templates import DOMAINS
+        for v in DOMAINS.values():
+            for c in v["categories"]:
+                self.assertIn(c["key"], AREA_OF)
+
+    def test_per_arm_leakage_separates_doing_the_task_from_guessing(self):
+        sc = [s for s in self.scens if s.use_type == "decision"]
+        right = {s.id: [s.correct_under_S] for s in sc}
+        # an arm that always answers the first option is not doing the task
+        flat = {s.id: [s.options[0].label] for s in sc}
+        out = IM.per_arm_leakage(self.scens, {"good": right, "flat": flat})
+        self.assertGreater(out["good"]["recovery"], out["flat"]["recovery"])
+        self.assertGreater(out["good"]["mi_lower_bits"],
+                           out["flat"]["mi_lower_bits"])
 
     def test_is_averaged_per_scenario_not_pooled(self):
-        # pooling domains would inflate H(S) toward log2(37) = 5.2 bits by
-        # counting "which case file is this" as something the answer revealed
+        # pooling domains would inflate H(S) toward log2(72) by counting
+        # "which case file is this" as something the answer revealed
         r = IM.analyse(self.scens)
-        self.assertLess(r.prior_entropy_bits, 3.0)
+        self.assertLess(r.prior_entropy_bits, 4.0)
 
     def test_empirical_recovery_scores_ties_as_a_coin_flip(self):
         sc = [s for s in self.scens if s.use_type == "decision"][0]

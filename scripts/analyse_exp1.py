@@ -249,8 +249,16 @@ def main() -> int:
             for r in all_runs:
                 if r.get("arm") in ("decision_only", "petal_text") and r.get("chosen"):
                     chosen.setdefault(r["scenario_id"], []).append(r["chosen"])
-            ils = {pr: IM.analyse(list(scen_index.values()), chosen=chosen,
-                                  prior=pr) for pr in IM.PRIORS}
+            by_arm: dict[str, dict[str, list[str]]] = {}
+            for r in all_runs:
+                if r.get("use_type") == "decision" and r.get("chosen"):
+                    by_arm.setdefault(r["arm"], {}).setdefault(
+                        r["scenario_id"], []).append(r["chosen"])
+            scen_list = list(scen_index.values())
+            arm_inf = IM.per_arm_leakage(scen_list, by_arm)
+            out_json["use_types"][ut] = out_json["use_types"].get(ut, {})
+            ils = {pr: IM.analyse(scen_list, chosen=chosen, prior=pr)
+                   for pr in IM.PRIORS}
             il = ils["uninformed"]
             ga = ils["generator_aware"]
             out_json["decision_implied_leakage"] = {k: v.to_dict()
@@ -292,6 +300,8 @@ def main() -> int:
                   % (il.conditional_entropy_bits, ga.conditional_entropy_bits),
                   "| **I(answer; S)** | **%.3f bits** | **%.3f bits** |"
                   % (il.mutual_information_bits, ga.mutual_information_bits),
+                  "| H(answer) -- the hard cap on I | %.3f bits | %.3f bits |"
+                  % (il.answer_entropy_bits, ga.answer_entropy_bits),
                   "| fraction of S implied by the answer | **%.1f%%** | **%.1f%%** |"
                   % (100 * il.fraction_of_secret, 100 * ga.fraction_of_secret),
                   "| adversary names the category | %.3f | %.3f |"
@@ -322,13 +332,60 @@ def main() -> int:
                             b["mutual_information_bits"], b["map_recovery"],
                             b["chance_recovery"]))
             L += ["",
-                  "**To the generator-aware adversary the correct answer is very "
-                  "nearly the whole secret**: %.1f%% of H(S), and the right category "
-                  "named %.0f%% of the time against a %.0f%% chance baseline. On "
-                  "this testbed, getting a decision task right *is* disclosing S to "
-                  "anyone who has read how the scenarios were built."
-                  % (100 * ga.fraction_of_secret, 100 * ga.map_recovery,
-                     100 * ga.chance_recovery), "",
+                  "To the generator-aware adversary the answer carries **%.3f bits, "
+                  "%.1f%% of H(S)**, naming the right category %.0f%% of the time "
+                  "against a %.0f%% chance baseline."
+                  % (ga.mutual_information_bits, 100 * ga.fraction_of_secret,
+                     100 * ga.map_recovery, 100 * ga.chance_recovery), "",
+                  "**Read the bits, not only the percentage.** I(answer; S) cannot "
+                  "exceed H(answer) = %.3f bits, because that is all a choice among "
+                  "three viable options can carry. The percentage is that cap "
+                  "divided by H(S), so it is a statement about how large the "
+                  "restricted alphabet is, not about how leaky the answer is. "
+                  "Against a domain's full 12-category pool the same answer is "
+                  "%.1f%% of the secret; against a pool of three it would be ~100%%. "
+                  "The bits are the invariant."
+                  % (ga.answer_entropy_bits, 100 * il.fraction_of_secret), "",
+                  "**And this is a property of this testbed, not of decision tasks "
+                  "in general.** Each bar-pair here carries two conditions "
+                  "(`petal/scenarios/confusable.py`), so H(S | answer) = %.3f bits "
+                  "of genuine residual uncertainty. An earlier build had one "
+                  "condition per pair, H(S | answer) = 0.03 bits and %.0f%% of S "
+                  "implied -- the answer named the category almost uniquely, and "
+                  "the decision-only arm could not have failed. A deployment whose "
+                  "restricted facts map many-to-one onto decisions leaks a smaller "
+                  "share than this; one whose facts map one-to-one leaks more. The "
+                  "number is reported as this testbed's, scoped."
+                  % (ga.conditional_entropy_bits, 97.9), "",
+                  "#### Two leakage axes, and why one is not enough", "",
+                  "The relay detector scores **assertion**. A relay that says "
+                  "\"Option B\" entails nothing about dialysis, so an arm that "
+                  "relays only its conclusion reads as near-zero leakage on every "
+                  "table above while handing over most of S. Reporting assertion "
+                  "leakage alone would make exactly the claim this section exists "
+                  "to refute, so the inferential axis is reported per arm, from the "
+                  "answers each arm actually gave. Bits are Fano on the measured "
+                  "recovery rate -- a lower bound valid for any adversary, and it "
+                  "correctly bounds a guessing arm at 0 rather than crediting it "
+                  "with the sharp-but-wrong posterior a plug-in entropy would.", "",
+                  "| arm | utility | assertion leak (m1) | adversary recovers S | "
+                  "inferential leak (bits, LB) |", "|---|---|---|---|---|"]
+            for arm in sorted(arm_inf,
+                              key=lambda a: -A._mean(p.utility.get(a, [0.0]))):
+                lk = A.leak_rate(p, arm)
+                L.append("| %s | %.3f | %s | %.3f | %.3f |"
+                         % (arm, A._mean(p.utility.get(arm, [float("nan")])),
+                            "-" if lk != lk else "%.3f" % lk,
+                            arm_inf[arm]["recovery"],
+                            arm_inf[arm]["mi_lower_bits"]))
+            L += ["", "Chance recovery is %.3f. Every arm that does the task "
+                  "recovers S's category well above chance, including the ones the "
+                  "assertion detector calls clean; the arms with no inferential leak "
+                  "are the arms that failed the task. **On a decision task the two "
+                  "axes trade against each other by construction** -- an arm cannot "
+                  "score high utility and low inferential leakage at once, because "
+                  "doing the task *is* the leak."
+                  % arm_inf[list(arm_inf)[0]]["chance"], "",
                   "So report this beside delta. A delta near 1.0 on decision tasks "
                   "means the agent kept the use and dropped the disclosure, and that "
                   "is still the finding -- but 'dropped the disclosure' cannot mean "
@@ -368,6 +425,7 @@ def main() -> int:
                                                       lam=cfg.lambda_length)
                               for k in [cfg.kappa] + list(cfg.kappa_sensitivity)},
             "tests": t["holm"], "power": pw,
+            **({"arm_inferential": arm_inf} if ut == "decision" else {}),
         }
 
     out = Path(args.out) if args.out else paths.RESULTS / "exp1.md"

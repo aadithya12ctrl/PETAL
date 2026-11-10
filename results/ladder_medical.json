@@ -4,20 +4,20 @@
     {
       "rung": 0,
       "name": "exact",
-      "k": 23,
+      "k": 47,
       "p": 0.8,
-      "eta": 0.7909,
-      "epsilon": 4.477,
-      "cumulative_eta": 0.790909
+      "eta": 0.7957,
+      "epsilon": 5.215,
+      "cumulative_eta": 0.795652
     },
     {
       "rung": 1,
       "name": "area",
-      "k": 12,
+      "k": 18,
       "p": 0.7,
-      "eta": 0.6727,
-      "epsilon": 3.245,
-      "cumulative_eta": 0.532066
+      "eta": 0.6824,
+      "epsilon": 3.681,
+      "cumulative_eta": 0.542916
     },
     {
       "rung": 2,
@@ -26,7 +26,7 @@
       "p": 0.6,
       "eta": 0.4667,
       "epsilon": 1.504,
-      "cumulative_eta": 0.248298
+      "cumulative_eta": 0.253361
     },
     {
       "rung": 3,
@@ -35,7 +35,7 @@
       "p": 0.6,
       "eta": 0.2,
       "epsilon": 0.405,
-      "cumulative_eta": 0.04966
+      "cumulative_eta": 0.050672
     },
     {
       "rung": 4,
@@ -47,5 +47,5 @@
       "cumulative_eta": 0.0
     }
   ],
-  "eta_product_randomised": 0.0496595041322314
+  "eta_product_randomised": 0.05067212276214832
 }

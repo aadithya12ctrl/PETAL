@@ -29,6 +29,12 @@ class ModelSpec:
     temperature: float = 0.7
     max_tokens: int = 400
     fallback_model: str | None = None   # used only if `model` is unavailable; logged loudly
+    #: OpenRouter reasoning effort, for models that think before answering.
+    #: Reasoning tokens bill as *output*, so a reasoning model left on its
+    #: default can cost several times what the completion length suggests.
+    #: "low" on the cheap audit role keeps the pilot in cents; "" omits the
+    #: field entirely for models that do not take it.
+    reasoning_effort: str = ""
 
     def routing(self) -> dict[str, Any]:
         p: dict[str, Any] = {
@@ -132,6 +138,9 @@ def default_config() -> Config:
         "dev": ModelSpec(
             role="dev", model="openai/gpt-oss-20b",
             temperature=0.7, max_tokens=400,
+            # a reasoning model: reasoning tokens bill as output, so the cheap
+            # audit role is pinned low or the "cents" pilot is not cents
+            reasoning_effort="low",
         ),
     }
     return cfg

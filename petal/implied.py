@@ -87,6 +87,11 @@ class ImpliedLeakage:
     map_recovery: float             # best achievable P(correct category | answer)
     chance_recovery: float          # 1 / k
     prior: str = ""                 # see PRIORS
+    #: H(answer). The hard cap on I(A; S): the answer cannot carry more
+    #: information than it has. log2(viable options) at most, so about 1.58
+    #: bits here however large the category pool grows -- which is why
+    #: enlarging the pool changes the *share* of S implied, never the bits.
+    answer_entropy_bits: float = 0.0
     empirical_recovery: float = float("nan")
     empirical_n: int = 0
     per_domain: dict[str, Any] = field(default_factory=dict)
@@ -162,6 +167,7 @@ def analyse(scenarios: Sequence[Scenario],
     # the one new thing they learn. The overall figure is the scenario-weighted
     # mean of the per-domain figures.
     per_domain: dict[str, Any] = {}
+    per_scenario_all: dict[str, ImpliedLeakage] = {}
     truth_of: dict[str, str] = {}      # scenario id -> true category key
     post_of: dict[str, dict[str, dict[str, float]]] = {}  # sid -> answer -> posterior
 
@@ -200,11 +206,19 @@ def analyse(scenarios: Sequence[Scenario],
                         per_sc[key2lab[akey]].get(c["key"], 0.0) + w * pa)
             per_scenario[sc.id] = _summarise(dj, scope=sc.id, n=1, prior=prior)
             post_of[sc.id] = {a: dict(d) for a, d in per_sc.items()}
-            # the scenario's own true category, for the empirical pass
+            # The scenario's own true category, for the empirical pass.
+            #
+            # Matched on the paraphrase list, NOT on `bars`. Since every
+            # bar-pair now carries two conditions, matching on bars finds both
+            # siblings and takes whichever comes first -- which would score the
+            # adversary against the wrong category about half the time. The
+            # paraphrase list is copied verbatim into the Secret, so it is an
+            # exact key.
             for c in cats:
-                if set(c["bars"]) == set(sc.S.blocks):
+                if list(c["paraphrases"]) == list(sc.S.paraphrases):
                     truth_of[sc.id] = c["key"]
                     break
+        per_scenario_all.update(per_scenario)
         per_domain[domain] = _average(per_scenario, n=len(per_scenario))
         per_domain[domain].scope = domain
         per_domain[domain].prior = prior
@@ -212,6 +226,7 @@ def analyse(scenarios: Sequence[Scenario],
     overall = _average(per_domain, n=len(decs))
     overall.prior = prior
     overall.per_domain = {d: v.to_dict() for d, v in per_domain.items()}
+    _CACHE[(id(scenarios), prior)] = (post_of, truth_of, per_scenario_all)
 
     if chosen:
         # Ties are scored as a uniform guess among the tied categories, not as
@@ -243,6 +258,74 @@ def analyse(scenarios: Sequence[Scenario],
     return overall
 
 
+#: posteriors from the most recent `analyse` call, keyed by (scenarios, prior),
+#: so `per_arm_leakage` can reuse them without recomputing the generator.
+_CACHE: dict[tuple, Any] = {}
+
+
+def per_arm_leakage(scenarios: Sequence[Scenario],
+                    chosen_by_arm: dict[str, dict[str, list[str]]],
+                    prior: str = "generator_aware") -> dict[str, dict[str, float]]:
+    """Per arm, the leakage its *answers* carry about S.
+
+    The second leakage axis the frontier figure needs. The relay detector scores
+    assertion: a relay that says "Option B" entails nothing about dialysis, so
+    an arm that relays only its conclusion reads as near-zero leakage while
+    handing over most of S. Plotting assertion leakage alone would make exactly
+    the claim this module exists to refute.
+
+    Two numbers per arm, both from the answers that arm actually produced:
+
+      ``recovery``  how often the adversary's best guess from the answer names
+                    the true category. Chance is 1/|candidates|.
+      ``mi_lower_bits``
+                    Fano applied to that recovery rate: a lower bound on
+                    I(answer; S) for the answers this arm really gave.
+
+    Fano rather than a plug-in entropy, and the distinction matters. The
+    adversary's posterior is sharp whenever an answer is one a candidate
+    category produces -- including when the arm answered *wrongly*, where the
+    adversary is confidently inferring the wrong category. Averaging that
+    posterior's entropy would credit a guessing arm with full leakage. Fano
+    uses the measured error rate against ground truth instead, so an arm that
+    answers at chance bounds out at 0 bits, which is the honest reading: it
+    leaks little through the task output because it is not doing the task.
+
+    So the two axes trade off against each other by construction, and that is
+    the finding. An arm cannot score high utility on a decision task and low
+    inferential leakage at the same time.
+    """
+    from .probe import fano_mi_lower
+
+    base = analyse(scenarios, prior=prior)
+    post_of, truth_of, per_sc = _CACHE[(id(scenarios), prior)]
+    k = max(2, int(round(base.k_categories)))
+    out: dict[str, dict[str, float]] = {}
+    for arm, chosen in chosen_by_arm.items():
+        hit = 0.0
+        tot = 0
+        for sid, labels in chosen.items():
+            truth, post = truth_of.get(sid), post_of.get(sid)
+            if truth is None or not post or sid not in per_sc:
+                continue
+            for lab in labels:
+                tot += 1
+                d = post.get(lab)
+                if not d:
+                    continue      # an answer no candidate category produces
+                best = max(d.values())
+                tied = [c for c, v in d.items() if v >= best - 1e-12]
+                if truth in tied:
+                    hit += 1.0 / len(tied)
+        if not tot:
+            continue
+        rec = hit / tot
+        out[arm] = {"n": tot, "recovery": rec, "chance": base.chance_recovery,
+                    "mi_lower_bits": fano_mi_lower(1.0 - rec, k),
+                    "mi_bits_design": base.mutual_information_bits}
+    return out
+
+
 def _average(per_domain: dict[str, "ImpliedLeakage"], *, n: int) -> ImpliedLeakage:
     """Scenario-weighted mean over domains. See `analyse` on why not a pool."""
     rows = [(v.n_scenarios, v) for v in per_domain.values() if v.n_scenarios]
@@ -258,7 +341,8 @@ def _average(per_domain: dict[str, "ImpliedLeakage"], *, n: int) -> ImpliedLeaka
         conditional_entropy_bits=m(lambda v: v.conditional_entropy_bits),
         mutual_information_bits=m(lambda v: v.mutual_information_bits),
         map_recovery=m(lambda v: v.map_recovery),
-        chance_recovery=m(lambda v: v.chance_recovery))
+        chance_recovery=m(lambda v: v.chance_recovery),
+        answer_entropy_bits=m(lambda v: v.answer_entropy_bits))
 
 
 def _summarise(joint: dict[tuple[str, str], float], *, scope: str,
@@ -268,7 +352,8 @@ def _summarise(joint: dict[tuple[str, str], float], *, scope: str,
         return ImpliedLeakage(scope=scope, n_scenarios=n, k_categories=0,
                               prior_entropy_bits=0.0, conditional_entropy_bits=0.0,
                               mutual_information_bits=0.0, map_recovery=float("nan"),
-                              chance_recovery=float("nan"), prior=prior)
+                              chance_recovery=float("nan"), prior=prior,
+                              answer_entropy_bits=0.0)
     p = {ca: v / total for ca, v in joint.items()}
     cats = sorted({c for c, _a in p})
     ans = sorted({a for _c, a in p})
@@ -290,4 +375,4 @@ def _summarise(joint: dict[tuple[str, str], float], *, scope: str,
         prior_entropy_bits=h_s, conditional_entropy_bits=h_s_given_a,
         mutual_information_bits=max(0.0, h_s - h_s_given_a),
         map_recovery=map_rec, chance_recovery=1.0 / k if k else float("nan"),
-        prior=prior)
+        prior=prior, answer_entropy_bits=_entropy(pa.values()))

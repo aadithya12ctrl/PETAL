@@ -87,6 +87,14 @@ AREA_OF: dict[str, str] = {
     "stoma": "a digestive condition",
 }
 
+# The second condition per bar-pair (petal/scenarios/confusable.py). Several
+# map to an area an existing key already uses: two categories that bar the same
+# options and coarsen to the same area are indistinguishable at rung 1, which is
+# the ladder working rather than a collision.
+from .scenarios.confusable import AREAS as _SIBLING_AREAS  # noqa: E402
+
+AREA_OF.update(_SIBLING_AREAS)
+
 PLACEHOLDER_TRUE = "a restricted annex applies to this file"
 PLACEHOLDER_FALSE = "no restricted annex applies to this file"
 DROPPED = ""

@@ -606,38 +606,110 @@ Two adversaries, and the gap between them is the finding:
 
 | | uninformed | generator-aware |
 |---|---|---|
-| candidate categories | 6 | 3 |
-| H(S) | 2.622 bits | 1.613 bits |
-| I(answer; S) | 1.080 bits | **1.579 bits** |
-| fraction of S implied | 41.2% | **97.9%** |
-| adversary names the category | 0.488 | **0.983** |
-| chance | 0.163 | 0.328 |
+| candidate categories | 12 | 6 |
+| H(S) | 3.585 bits | 2.585 bits |
+| H(S | answer) | 2.500 bits | 1.000 bits |
+| I(answer; S) | 1.085 bits | **1.585 bits** |
+| H(answer) — the hard cap on I | 1.585 bits | 1.585 bits |
+| fraction of S implied | 30.3% | **61.3%** |
+| adversary names the category | 0.250 | **0.500** |
+| chance | 0.083 | 0.167 |
 
-The generator-aware adversary knows what this paper publishes: that a scenario's
-restricted category always leaves exactly one viable option. **To them the
-correct answer is very nearly the whole secret.** On this testbed, getting a
-decision task right *is* disclosing S to anyone who has read how the scenarios
-were built.
+The generator-aware adversary knows what this paper publishes: that a
+scenario's restricted category always leaves exactly one viable option.
 
-The empirical row settles which column is real. On answers the models actually
-gave, recovery is 0.967 under *both* priors — because the uninformed MAP of 0.488
-averages over answers an ambiguous category could have produced, and the builder
-never picks an ambiguous category, so no such answer is ever seen. The uninformed
-column is a floor on a case that does not arise.
+**Read the bits, not only the percentage.** I(answer; S) cannot exceed
+H(answer) = 1.585 bits, because that is all a choice among three viable options
+can carry. The percentage is that cap divided by H(S), so it says how large the
+restricted alphabet is as much as how leaky the answer is. Enlarging the pool
+can never reduce the absolute leakage; it reduces the share. Both are reported.
 
-So δ and this number are reported together. A δ/ceiling near 1.0 on decision
-tasks means the agent kept the use and dropped the disclosure, and that remains
-the finding — but "dropped the disclosure" cannot mean leakage went to zero, and
-a reader entitled to think it did would be misled. The relay measurements are
-leakage *through the relay text*; this is leakage through the task output, which
-no relay-level defence can touch. It is a property of the construction, not of
-the models, and the trade is stated rather than hidden: a testbed where S only
-*shifted* the answer distribution would have a lower floor and a weaker δ.
+#### The testbed had to be changed for this to be a real experiment
+
+The first version of this measurement returned 97.9% and a recovery of 0.983,
+and that number was *designed in*. Each domain had six categories barring six
+distinct pairs of the four options — one category per pair — so the correct
+answer named the category almost uniquely. H(S | answer) was 0.03 bits. There
+was no way for an agent to use S without revealing it, which means the
+decision-only arm could not have failed and measuring it would have measured
+nothing.
+
+Real tasks are not like that. Dialysis, cardiac rehabilitation and escorting a
+disabled child to school all rule out the same Tuesday and Thursday mornings.
+That many-to-one structure is the regime Conjecture C1 is about, and the
+testbed had none of it.
+
+`petal/scenarios/confusable.py` adds a second condition to every bar-pair in
+every domain — 35 of them, clinically, legally or financially distinct,
+asserting different propositions, implying the same operational constraint.
+Authoring rules are in that module: the statement must imply *exactly* the
+declared bars and no more, every proposition must be globally unique, and
+paraphrases are multi-word where a single word would be common English.
+
+| | one condition per pair | two per pair |
+|---|---|---|
+| H(S | answer) | 0.03 bits | **1.000 bits** |
+| fraction of S implied | 97.9% | **61.3%** |
+| adversary names the category | 0.983 | **0.500** |
+
+A full bit of uncertainty now survives the answer, so using S without
+disclosing it is possible at all. The share a deployment actually leaks depends
+on how many of its restricted facts map to the same decision; this testbed's
+number is reported as this testbed's.
+
+Three things fell out of making the change, each caught by a test rather than
+by inspection:
+
+* **`oat` barred three options, not the two it declared.** Its statement said
+  supervised consumption "each weekday morning", which rules out Thursday
+  morning as well as Tuesday — quietly over-determining ten scenarios and
+  raising Full-arm accuracy for the wrong reason. Now Tuesday only.
+* **Truth-matching broke silently.** `implied.py` identified a scenario's true
+  category by its barred pair. With two categories per pair that matches both
+  and takes whichever comes first, scoring the adversary against the wrong
+  category about half the time. Matched on the paraphrase list now.
+* **Three propositions were shared across domains.** `ladder.category_for`
+  looks categories up by proposition globally, so the lookup was ambiguous —
+  the same shape as the `pregnancy` / `pregnancy_travel` bug. All 72
+  propositions are now distinct while meaning what they meant.
+
+### Assertion leakage is not the only leakage, and the figure says so
+
+The detector scores *assertion*. A relay that says "Option B" entails nothing
+about dialysis, so an arm relaying only its conclusion reads as near-zero
+leakage on every relay-level table while handing over most of S. On the mock:
+
+| arm | utility | assertion leak (m1) | adversary recovers S | inferential leak (bits, LB) |
+|---|---|---|---|---|
+| full | 1.000 | 1.000 | 0.500 | 0.424 |
+| petal_text | 1.000 | 0.000 | 0.500 | 0.424 |
+| decision_only | 1.000 | 0.000 | 0.500 | 0.424 |
+| b4_restriction | 0.300 | 0.000 | 0.150 | 0.000 |
+| drop | 0.267 | 0.000 | 0.133 | 0.000 |
+
+Chance recovery is 0.167. Every arm that does the task recovers S's category
+well above chance, including the ones the assertion detector calls clean; the
+arms with no inferential leak are the arms that failed the task. **On a
+decision task the two axes trade against each other by construction** — doing
+the task *is* the leak.
+
+Bits are Fano on the measured recovery rate, not a plug-in entropy. The
+adversary's posterior is sharp whenever an answer is one some candidate
+category produces — including when the arm answered *wrongly* and the
+adversary is confidently inferring the wrong category. Averaging that
+posterior's entropy credited a guessing arm with full leakage; Fano uses the
+error rate against ground truth, so a guessing arm correctly bounds out at 0.
+
+Figure 1 carries both axes as separate panels. Plotting assertion leakage alone
+would have made exactly the claim this section exists to refute.
 
 ### The order Phase 7 now runs in
 
 1. Full 60 × 8 matrix on `dev` (gpt-oss-20b), cents — `--no-prereg`, since this
-   is the audit pilot.
+   is the audit pilot. gpt-oss-20b is a reasoning model and reasoning tokens
+   bill as *output*, so the `dev` role is pinned to `reasoning_effort: "low"`
+   (`ModelSpec.reasoning_effort`, sent as OpenRouter's `reasoning.effort` and
+   part of the cache key — two efforts are two different runs).
 2. `audit_testbed.py` on it; fix whatever it flags; rebuild; commit.
 3. `freeze.py --audit-model dev`.
 4. 10-scenario paid dry run; recompute cost per run from the ledger.

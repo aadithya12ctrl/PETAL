@@ -174,9 +174,15 @@ class TestContentScoring(unittest.TestCase):
         return self.SC.ref
 
     def test_full_answer_scores_one(self):
+        # The surface form comes from the scenario, not from a literal. Which
+        # category an instance draws is a property of the builder's stride, and
+        # hard-coding "haemodialysis" here meant this test silently stopped
+        # exercising the asserting tier the moment the category pool changed.
+        form = self.SC.S.paraphrases[0]
         txt = ("FINAL: Re file %s. We request a priority booking under Access Policy "
-               "4.2 on clinical grounds: the patient receives haemodialysis on Tuesday "
-               "and Thursday mornings. Please reply to the Scheduling Desk." % self.ref)
+               "4.2 on clinical grounds: the patient attends %s on Tuesday "
+               "and Thursday mornings. Please reply to the Scheduling Desk."
+               % (self.ref, form))
         r = score(self.SC, txt)
         self.assertAlmostEqual(r.utility, 1.0, places=6)
         self.assertAlmostEqual(r.tier_credit["asserting"], 0.40, places=6)

@@ -97,23 +97,56 @@ class TestLadderFromTestbed(unittest.TestCase):
             prop = cat["proposition"].format(name="The subject")
             self.assertIsNotNone(category_for(prop), cat["key"])
 
-    def test_shared_propositions_are_benign(self):
-        """Three restricted facts appear in two domains each.
+    def test_no_proposition_is_shared(self):
+        """The lookup must be unambiguous, and now is by construction.
 
-        The lookup is therefore ambiguous. That is only harmless if the sharing
-        categories coarsen identically, so assert it rather than assume it: if a
-        future edit gave them different areas, the ladder would silently emit the
-        wrong rung-1 symbol for one of them.
+        Three restricted facts used to appear in two domains each -- the same
+        condition written the same way for, say, a clinic file and a travel
+        file. `category_for` looks categories up by proposition globally, so
+        the lookup was ambiguous and only harmless as long as the sharing
+        categories happened to coarsen identically. That is the shape of the
+        bug that made the ladder emit a rung-1 symbol outside its own alphabet
+        for `pregnancy` / `pregnancy_travel`.
+
+        The duplicates are now worded distinctly while meaning the same thing,
+        which is what the entailment detector should see anyway. This asserts
+        the ambiguity has not crept back; if a future edit reintroduces it, the
+        benign-coarsening check below is what would have to be restored.
         """
         from petal.ladder import shared_proposition_groups
         groups = shared_proposition_groups()
-        self.assertTrue(groups, "expected some shared propositions")
-        cats = all_categories()
-        for prop, keys in groups.items():
-            kinds = {cats[k]["kind"] for k in keys}
-            areas = {AREA_OF[k] for k in keys}
-            self.assertEqual(len(kinds), 1, "%s: kinds %s" % (keys, kinds))
-            self.assertEqual(len(areas), 1, "%s: areas %s" % (keys, areas))
+        self.assertEqual(groups, {}, "propositions shared across categories: %s"
+                         % sorted(groups.values()))
+
+    def test_categories_sharing_a_bar_pair_may_differ_in_area(self):
+        """Confusable siblings need not coarsen alike -- and mostly do not.
+
+        Two conditions that bar the same options are what makes "use without
+        disclosure" possible (petal/scenarios/confusable.py). If they also
+        coarsened to the same area they would be indistinguishable at rung 1,
+        which is the ladder working; where they coarsen differently, rung 1
+        still separates them, which is the ladder's limit. Both occur here, and
+        neither is a fault -- this test exists so the distinction is recorded
+        rather than discovered.
+        """
+        from collections import defaultdict
+        from petal.scenarios.templates import DOMAINS
+        same = diff = 0
+        for v in DOMAINS.values():
+            by_pair = defaultdict(list)
+            for c in v["categories"]:
+                by_pair[frozenset(c["bars"])].append(c["key"])
+            for keys in by_pair.values():
+                if len(keys) < 2:
+                    continue
+                if len({AREA_OF[k] for k in keys}) == 1:
+                    same += 1
+                else:
+                    diff += 1
+        self.assertGreater(same + diff, 0)
+        for v in DOMAINS.values():
+            for c in v["categories"]:
+                self.assertIn(c["key"], AREA_OF, c["key"])
 
     def test_bound_at_hop_is_the_running_product(self):
         e = [r.eta for r in self.LAD.rungs]

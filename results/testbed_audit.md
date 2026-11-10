@@ -11,7 +11,7 @@ This replaces the plan's human hand-check. It cannot judge whether a case file r
 - swap           content  mean utility 1.000 (n=30)
 - drop           decision mean utility 0.267 (n=30)
 - drop           content  mean utility 0.300 (n=30)
-- b4_restriction decision mean utility 0.333 (n=30)
+- b4_restriction decision mean utility 0.300 (n=30)
 - b4_restriction content  mean utility 0.300 (n=30)
 - petal_text     decision mean utility 1.000 (n=30)
 - petal_text     content  mean utility 0.300 (n=30)

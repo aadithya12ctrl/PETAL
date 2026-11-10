@@ -1,19 +1,19 @@
 # Experiment 2: ladder decay against Theorem T3
 
 Run file: `runs/exp2_mock_agent_a_seed20261109.jsonl`
-Kind: `medical`; probe over k = 23 candidate propositions; I(S;M_0) assumed at its maximum log2(k) = 4.52 bits.
+Kind: `medical`; probe over k = 47 candidate propositions; I(S;M_0) assumed at its maximum log2(k) = 5.55 bits.
 
 ## The ladder actually used
 
 | rung | name | k | p | eta | cumulative eta |
 |---|---|---|---|---|---|
-| 0 | exact | 23 | 0.80 | 0.7909 | 0.79091 |
-| 1 | area | 12 | 0.70 | 0.6727 | 0.53207 |
-| 2 | kind | 4 | 0.60 | 0.4667 | 0.24830 |
-| 3 | placeholder | 2 | 0.60 | 0.2000 | 0.04966 |
+| 0 | exact | 47 | 0.80 | 0.7957 | 0.79565 |
+| 1 | area | 18 | 0.70 | 0.6824 | 0.54292 |
+| 2 | kind | 4 | 0.60 | 0.4667 | 0.25336 |
+| 3 | placeholder | 2 | 0.60 | 0.2000 | 0.05067 |
 | 4 | dropped | 1 | 1.00 | 0.0000 | 0.00000 |
 
-Product over the randomised rungs: **0.0497**. PETAL_v2 §4.3 quotes 0.039 for an illustrative (20, 5, 3, 2) alphabet; the testbed's real alphabets are larger, and a larger k raises eta for a fixed p, so the real ladder contracts slightly less than the paper's example.
+Product over the randomised rungs: **0.0507**. PETAL_v2 §4.3 quotes 0.039 for an illustrative (20, 5, 3, 2) alphabet; the testbed's real alphabets are larger, and a larger k raises eta for a fixed p, so the real ladder contracts slightly less than the paper's example.
 
 ## Measured decay
 
@@ -21,24 +21,24 @@ Product over the randomised rungs: **0.0497**. PETAL_v2 §4.3 quotes 0.039 for a
 
 | schedule | hop | n | probe error | probe LB | LB (cons.) | T3 UB | H4 |
 |---|---|---|---|---|---|---|---|
-| none | 1 | 20 | 0.000 | 4.524 | 3.321 | 4.524 |  |
-| none | 2 | 20 | 0.000 | 4.524 | 3.321 | 4.524 |  |
-| none | 3 | 20 | 0.000 | 4.524 | 3.321 | 4.524 |  |
-| none | 4 | 20 | 0.000 | 4.524 | 3.321 | 4.524 |  |
-| deterministic | 1 | 20 | 0.000 | 4.524 | 3.321 | 4.524 |  |
-| deterministic | 2 | 20 | 1.000 | 0.000 | 0.000 | 4.524 |  |
-| deterministic | 3 | 20 | 0.900 | 0.041 | 0.000 | 4.524 |  |
-| deterministic | 4 | 20 | 1.000 | 0.000 | 0.000 | 4.524 |  |
-| stochastic | 1 | 20 | 0.100 | 3.609 | 2.404 | 3.578 | point est. only |
-| stochastic | 2 | 20 | 1.000 | 0.000 | 0.000 | 2.407 |  |
-| stochastic | 3 | 20 | 0.900 | 0.041 | 0.000 | 1.123 |  |
-| stochastic | 4 | 20 | 1.000 | 0.000 | 0.000 | 0.225 |  |
-| random_dropout | 1 | 20 | 0.400 | 1.769 | 0.852 | 4.524 |  |
-| random_dropout | 2 | 20 | 0.600 | 0.877 | 0.277 | 4.524 |  |
-| random_dropout | 3 | 20 | 0.700 | 0.521 | 0.103 | 4.524 |  |
-| random_dropout | 4 | 20 | 0.850 | 0.123 | 0.000 | 4.524 |  |
+| none | 1 | 20 | 0.000 | 5.555 | 4.204 | 5.555 |  |
+| none | 2 | 20 | 0.000 | 5.555 | 4.204 | 5.555 |  |
+| none | 3 | 20 | 0.000 | 5.555 | 4.204 | 5.555 |  |
+| none | 4 | 20 | 0.000 | 5.555 | 4.204 | 5.555 |  |
+| deterministic | 1 | 20 | 0.000 | 5.555 | 4.204 | 5.555 |  |
+| deterministic | 2 | 20 | 1.000 | 0.000 | 0.000 | 5.555 |  |
+| deterministic | 3 | 20 | 1.000 | 0.000 | 0.000 | 5.555 |  |
+| deterministic | 4 | 20 | 1.000 | 0.000 | 0.000 | 5.555 |  |
+| stochastic | 1 | 20 | 0.100 | 4.533 | 3.135 | 4.420 | point est. only |
+| stochastic | 2 | 20 | 1.000 | 0.000 | 0.000 | 3.016 |  |
+| stochastic | 3 | 20 | 1.000 | 0.000 | 0.000 | 1.407 |  |
+| stochastic | 4 | 20 | 1.000 | 0.000 | 0.000 | 0.281 |  |
+| random_dropout | 1 | 20 | 0.450 | 2.076 | 1.016 | 5.555 |  |
+| random_dropout | 2 | 20 | 0.650 | 1.030 | 0.336 | 5.555 |  |
+| random_dropout | 3 | 20 | 0.750 | 0.601 | 0.124 | 5.555 |  |
+| random_dropout | 4 | 20 | 0.900 | 0.114 | 0.000 | 5.555 |  |
 
-Chance error for this probe is 0.957, i.e. 0.000 bits.
+Chance error for this probe is 0.979, i.e. 0.000 bits.
 
 ## Outside the slot: what the agents carry on their own
 
@@ -48,31 +48,31 @@ The question that is about the agents is whether they carry S *around* the slot 
 
 | schedule | hop | n | probe error | LB (cons.) | T3 UB | H4 (side) |
 |---|---|---|---|---|---|---|
-| none | 1 | 20 | 0.900 | 0.000 | 4.524 |  |
-| none | 2 | 20 | 0.900 | 0.000 | 4.524 |  |
-| none | 3 | 20 | 0.900 | 0.000 | 4.524 |  |
-| none | 4 | 20 | 0.900 | 0.000 | 4.524 |  |
-| deterministic | 1 | 20 | 0.900 | 0.000 | 4.524 |  |
-| deterministic | 2 | 20 | 0.900 | 0.000 | 4.524 |  |
-| deterministic | 3 | 20 | 0.900 | 0.000 | 4.524 |  |
-| deterministic | 4 | 20 | 1.000 | 0.000 | 4.524 |  |
-| stochastic | 1 | 20 | 0.900 | 0.000 | 3.578 |  |
-| stochastic | 2 | 20 | 0.900 | 0.000 | 2.407 |  |
-| stochastic | 3 | 20 | 0.900 | 0.000 | 1.123 |  |
-| stochastic | 4 | 20 | 1.000 | 0.000 | 0.225 |  |
-| random_dropout | 1 | 20 | 0.900 | 0.000 | 4.524 |  |
-| random_dropout | 2 | 20 | 0.950 | 0.000 | 4.524 |  |
-| random_dropout | 3 | 20 | 0.950 | 0.000 | 4.524 |  |
-| random_dropout | 4 | 20 | 0.950 | 0.000 | 4.524 |  |
+| none | 1 | 20 | 1.000 | 0.000 | 5.555 |  |
+| none | 2 | 20 | 1.000 | 0.000 | 5.555 |  |
+| none | 3 | 20 | 1.000 | 0.000 | 5.555 |  |
+| none | 4 | 20 | 1.000 | 0.000 | 5.555 |  |
+| deterministic | 1 | 20 | 1.000 | 0.000 | 5.555 |  |
+| deterministic | 2 | 20 | 1.000 | 0.000 | 5.555 |  |
+| deterministic | 3 | 20 | 1.000 | 0.000 | 5.555 |  |
+| deterministic | 4 | 20 | 1.000 | 0.000 | 5.555 |  |
+| stochastic | 1 | 20 | 1.000 | 0.000 | 4.420 |  |
+| stochastic | 2 | 20 | 1.000 | 0.000 | 3.016 |  |
+| stochastic | 3 | 20 | 1.000 | 0.000 | 1.407 |  |
+| stochastic | 4 | 20 | 1.000 | 0.000 | 0.281 |  |
+| random_dropout | 1 | 20 | 1.000 | 0.000 | 5.555 |  |
+| random_dropout | 2 | 20 | 1.000 | 0.000 | 5.555 |  |
+| random_dropout | 3 | 20 | 1.000 | 0.000 | 5.555 |  |
+| random_dropout | 4 | 20 | 1.000 | 0.000 | 5.555 |  |
 
 The `none` schedule is the reference: it writes no slot, so its no-slot column is the whole note and its numbers should match the table above. Where a defended schedule's no-slot row is near the `none` row, the ladder is coarsening a symbol while the prose around it carries S regardless.
 
 ## Task utility by schedule
 
-- none           mean utility 0.850 (n=20)
+- none           mean utility 0.865 (n=20)
 - deterministic  mean utility 0.650 (n=20)
 - stochastic     mean utility 0.650 (n=20)
-- random_dropout mean utility 0.670 (n=20)
+- random_dropout mean utility 0.685 (n=20)
 
 ## H4 verdict
 
