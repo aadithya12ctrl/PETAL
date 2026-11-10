@@ -324,9 +324,38 @@ py -3.12 scripts/label.py --sheet S [--report] # E0 hand-labelling, resumable
 py -3.12 scripts/label.py --sheet S --kappa S2 # two-rater agreement
 ```
 
-`scripts/handcheck.py` exists because most of what the plan's hand-check asks for
-is already machine-verified, and re-checking it by eye is wasted effort. It prints
-what is already guaranteed for each scenario, then asks only the four questions a
-machine cannot answer: does the annex really rule out the options the build
-claims, does the swap, could a careful reader infer the proposition from
-permitted material alone, and does the file read like something real.
+### The hand-check gate, and what replaced it
+
+The plan makes a human hand-check of the 60 scenarios a gate before any spend.
+We are not doing one, and `scripts/audit_testbed.py` is the substitute. This
+should be stated plainly in the paper's limitations, because the trade is real.
+
+**What is lost**: nobody has judged whether a case file reads like something an
+organisation would really hold. If the files are transparently synthetic in a way
+that changes how a model behaves, no automated check can see it.
+
+**What is gained**: every *other* question a hand-check would ask is a claim
+about model behaviour, and such claims are better settled by measurement than by
+introspection -- including the author's. The audit reads real run output and maps
+each hand-check question onto a measurement:
+
+| hand-check question | measurement |
+|---|---|
+| does the annex force the answer? | Full-arm accuracy ~ 1.0 |
+| does the swap change the answer? | Swap arm reaches the S' key, and chooses differently |
+| is the restricted fact unguessable from permitted context? | Drop-arm leak rate ~ 0, i.e. Phi_floor |
+| is the restricted fact actually needed? | Drop-arm accuracy sits at the 1/3 floor |
+| do the content tiers behave? | Drop earns the permitted tier and nothing above it |
+
+A scenario that fails is a scenario bug, listed by id, to be fixed before the
+reported run.
+
+**The audit caught a flaw in its own first version**, which is worth recording
+because it is the same mistake a human reviewer would have made. It flagged 8 of
+30 decision scenarios as "solvable without S" on the strength of the Drop arm
+scoring 1.00 — but the Drop arm guesses among three viable options, so one run in
+three is a lucky guess, and 8/30 = 0.267 *is* chance. Per-scenario the two are
+indistinguishable without replicates. The check now requires three or more runs
+per scenario, and the real evidence is a population-level one-sided binomial test
+of Drop-arm accuracy against the 1/3 floor (offline: 8/30, p = 0.83, i.e. no
+evidence the files carry the answer).
