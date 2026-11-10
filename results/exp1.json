@@ -1,0 +1,424 @@
+{
+ "meta": {
+  "n_runs": 480,
+  "n_detections": 2160,
+  "models": [
+   "agent_a"
+  ],
+  "seeds": [
+   20261109
+  ],
+  "arms": [
+   "b1_privacy",
+   "b4_restriction",
+   "b6_placebo",
+   "decision_only",
+   "drop",
+   "full",
+   "petal_text",
+   "swap"
+  ]
+ },
+ "use_types": {
+  "content": {
+   "n_scenarios": 30,
+   "utility": {
+    "b1_privacy": 0.6000000000000001,
+    "b4_restriction": 0.30000000000000004,
+    "b6_placebo": 0.30000000000000004,
+    "decision_only": 0.6000000000000001,
+    "drop": 0.30000000000000004,
+    "full": 1.0,
+    "petal_text": 0.30000000000000004,
+    "swap": 1.0
+   },
+   "leak": {
+    "b1_privacy": {
+     "m1_draft": 0.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "b4_restriction": {
+     "m1_draft": 0.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "b6_placebo": {
+     "m1_draft": 1.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "decision_only": {
+     "m1_draft": 0.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "drop": {
+     "m1_draft": 0.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "full": {
+     "m1_draft": 1.0,
+     "m1": 1.0,
+     "m2": 1.0,
+     "output": 1.0
+    },
+    "petal_text": {
+     "m1_draft": 1.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "swap": {
+     "m1_draft": 0.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    }
+   },
+   "lambda": 1.0,
+   "phi_floor": 0.0,
+   "delta": {
+    "petal_text": {
+     "point": 0.0,
+     "lo": 0.0,
+     "hi": 0.0,
+     "n": 30
+    },
+    "decision_only": {
+     "point": 0.4285714285714287,
+     "lo": 0.4285714285714287,
+     "hi": 0.4285714285714287,
+     "n": 30
+    },
+    "b6_placebo": {
+     "point": 0.0,
+     "lo": 0.0,
+     "hi": 0.0,
+     "n": 30
+    },
+    "b1_privacy": {
+     "point": 0.4285714285714287,
+     "lo": 0.4285714285714287,
+     "hi": 0.4285714285714287,
+     "n": 30
+    },
+    "b4_restriction": {
+     "point": 0.0,
+     "lo": 0.0,
+     "hi": 0.0,
+     "n": 30
+    }
+   },
+   "delta_ceiling": 0.4285714285714285,
+   "decision_rule": {
+    "2.0": {
+     "available": true,
+     "delta_utility": {
+      "point": 0.0,
+      "lo": 0.0,
+      "hi": 0.0,
+      "n": 30
+     },
+     "leak_petal": 0.0,
+     "leak_baseline": 0.0,
+     "delta_leak": 0.0,
+     "delta_length_frac": 0.07403325986776195,
+     "threshold": 0.001480665197355239,
+     "petal_wins": false,
+     "margin": -0.001480665197355239,
+     "wins_at_ci_low": false
+    },
+    "1.0": {
+     "available": true,
+     "delta_utility": {
+      "point": 0.0,
+      "lo": 0.0,
+      "hi": 0.0,
+      "n": 30
+     },
+     "leak_petal": 0.0,
+     "leak_baseline": 0.0,
+     "delta_leak": 0.0,
+     "delta_length_frac": 0.07403325986776195,
+     "threshold": 0.001480665197355239,
+     "petal_wins": false,
+     "margin": -0.001480665197355239,
+     "wins_at_ci_low": false
+    },
+    "5.0": {
+     "available": true,
+     "delta_utility": {
+      "point": 0.0,
+      "lo": 0.0,
+      "hi": 0.0,
+      "n": 30
+     },
+     "leak_petal": 0.0,
+     "leak_baseline": 0.0,
+     "delta_leak": 0.0,
+     "delta_length_frac": 0.07403325986776195,
+     "threshold": 0.001480665197355239,
+     "petal_wins": false,
+     "margin": -0.001480665197355239,
+     "wins_at_ci_low": false
+    }
+   },
+   "tests": {
+    "utility petal_text vs b1_privacy": {
+     "p": 4.320463057827488e-08,
+     "p_adj": 3.4563704462619906e-07,
+     "reject": true
+    },
+    "utility decision_only vs b4_restriction": {
+     "p": 4.320463057827488e-08,
+     "p_adj": 3.4563704462619906e-07,
+     "reject": true
+    },
+    "utility petal_text vs b6_placebo": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "leak petal_text vs b6_placebo": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "leak petal_text vs b1_privacy": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "utility petal_text vs b4_restriction": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "leak petal_text vs b4_restriction": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "leak decision_only vs b4_restriction": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    }
+   },
+   "power": {
+    "n_scenarios": 30,
+    "sd_paired_diff": 0.0,
+    "u_full": 1.0,
+    "u_drop": 0.30000000000000004,
+    "mde_delta_80pct": NaN
+   }
+  },
+  "decision": {
+   "n_scenarios": 30,
+   "utility": {
+    "b1_privacy": 1.0,
+    "b4_restriction": 0.3333333333333333,
+    "b6_placebo": 1.0,
+    "decision_only": 1.0,
+    "drop": 0.26666666666666666,
+    "full": 1.0,
+    "petal_text": 1.0,
+    "swap": 1.0
+   },
+   "leak": {
+    "b1_privacy": {
+     "m1_draft": 0.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "b4_restriction": {
+     "m1_draft": 0.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "b6_placebo": {
+     "m1_draft": 1.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "decision_only": {
+     "m1_draft": 0.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "drop": {
+     "m1_draft": 0.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "full": {
+     "m1_draft": 1.0,
+     "m1": 1.0,
+     "m2": 1.0,
+     "output": 0.0
+    },
+    "petal_text": {
+     "m1_draft": 1.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "swap": {
+     "m1_draft": 0.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    }
+   },
+   "lambda": 1.0,
+   "phi_floor": 0.0,
+   "delta": {
+    "petal_text": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 30
+    },
+    "decision_only": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 30
+    },
+    "b6_placebo": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 30
+    },
+    "b1_privacy": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 30
+    },
+    "b4_restriction": {
+     "point": 0.09090909090909088,
+     "lo": -0.26315789473684204,
+     "hi": 0.3478260869565218,
+     "n": 30
+    }
+   },
+   "delta_ceiling": 1.0,
+   "decision_rule": {
+    "2.0": {
+     "available": true,
+     "delta_utility": {
+      "point": 0.6666666666666666,
+      "lo": 0.5,
+      "hi": 0.8333333333333334,
+      "n": 30
+     },
+     "leak_petal": 0.0,
+     "leak_baseline": 0.0,
+     "delta_leak": 0.0,
+     "delta_length_frac": 0.057892675283979615,
+     "threshold": 0.0011578535056795923,
+     "petal_wins": true,
+     "margin": 0.6655088131609871,
+     "wins_at_ci_low": true
+    },
+    "1.0": {
+     "available": true,
+     "delta_utility": {
+      "point": 0.6666666666666666,
+      "lo": 0.5,
+      "hi": 0.8333333333333334,
+      "n": 30
+     },
+     "leak_petal": 0.0,
+     "leak_baseline": 0.0,
+     "delta_leak": 0.0,
+     "delta_length_frac": 0.057892675283979615,
+     "threshold": 0.0011578535056795923,
+     "petal_wins": true,
+     "margin": 0.6655088131609871,
+     "wins_at_ci_low": true
+    },
+    "5.0": {
+     "available": true,
+     "delta_utility": {
+      "point": 0.6666666666666666,
+      "lo": 0.5,
+      "hi": 0.8333333333333334,
+      "n": 30
+     },
+     "leak_petal": 0.0,
+     "leak_baseline": 0.0,
+     "delta_leak": 0.0,
+     "delta_length_frac": 0.057892675283979615,
+     "threshold": 0.0011578535056795923,
+     "petal_wins": true,
+     "margin": 0.6655088131609871,
+     "wins_at_ci_low": true
+    }
+   },
+   "tests": {
+    "utility petal_text vs b4_restriction": {
+     "p": 7.74421643104407e-06,
+     "p_adj": 6.195373144835256e-05,
+     "reject": true
+    },
+    "utility decision_only vs b4_restriction": {
+     "p": 7.74421643104407e-06,
+     "p_adj": 6.195373144835256e-05,
+     "reject": true
+    },
+    "utility petal_text vs b6_placebo": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "leak petal_text vs b6_placebo": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "utility petal_text vs b1_privacy": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "leak petal_text vs b1_privacy": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "leak petal_text vs b4_restriction": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    },
+    "leak decision_only vs b4_restriction": {
+     "p": 1.0,
+     "p_adj": 1.0,
+     "reject": false
+    }
+   },
+   "power": {
+    "n_scenarios": 30,
+    "sd_paired_diff": 0.4794633014853841,
+    "u_full": 1.0,
+    "u_drop": 0.26666666666666666,
+    "mde_delta_80pct": 0.33442378303903775
+   }
+  }
+ }
+}

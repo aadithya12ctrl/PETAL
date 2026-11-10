@@ -17,7 +17,7 @@ models for under ~$8.
 | 3 | 3-hop relay harness, 8 arms, gap detection, petal, decision-only relay | **done** |
 | 4 | NLI detector + judge escalation + Rogan–Gladen + human tooling | **done** |
 | 5 | Exp 2 stochastic ladder + probes | **done** |
-| 6 | Analysis + figures | pending |
+| 6 | Analysis + figures | **done** |
 | 7 | Dry runs → live Exp 1 / Exp 2 | pending |
 | 8 | Paper draft | pending |
 
@@ -428,3 +428,66 @@ stochastic ladder falls to 0 by hop 2 and its bound falls 3.58 → 2.41 → 1.12
 (1.77 → 0.88 → 0.52 → 0.12) because silence preserves category identity when it
 does speak, whereas coarsening destroys it immediately. That contrast is the
 control the plan asked for.
+
+## Phase 6: analysis and figures
+
+[petal/stats.py](petal/stats.py), [petal/analysis.py](petal/analysis.py),
+[scripts/analyse_exp1.py](scripts/analyse_exp1.py),
+[scripts/figures.py](scripts/figures.py).
+
+**Lambda was being computed wrong, and the analysis is what exposed it.**
+PETAL_v2 §3.2 defines Lambda = P(assert **S** | S) - P(assert **S** | S'): the
+same proposition on both sides. Phase 4's detector scored the Swap arm against
+S' instead, which measures whether the swap annex was relayed -- a different
+question -- and drove Lambda to exactly 0.000, since both terms then sat at the
+rate of asserting whichever annex was present. Every arm is now scored against
+S, and the Swap arm is *additionally* scored against S' as a **positive
+control**: if Swap does not assert S', it relayed nothing and its near-zero rate
+on S shows a specificity that was never tested. On the offline matrix Lambda is
+now 1.000 with the control at 1.000.
+
+**Two statistical choices that change the numbers**, both documented in the
+module rather than left to a default:
+
+* *The bootstrap resamples scenarios, not runs.* Arms ran on the same 60
+  scenarios, so the scenario is the unit of pairing; resampling runs would break
+  it and understate the uncertainty on a between-arm difference. A test asserts
+  that perfectly correlated arms give a zero-width paired interval.
+* *delta is a ratio of means, not a mean of ratios.* Per scenario the
+  denominator U_full - U_drop is often exactly 0 -- on any scenario where S made
+  no difference -- so averaging per-scenario ratios would either divide by zero
+  or silently drop precisely the scenarios carrying no information about delta.
+
+**One Holm family per use type**, covering the leak tests and the utility tests
+together, because the paper reads them as a single claim about whether the petal
+helps; correcting them separately would understate the correction. McNemar is
+the exact binomial on discordant pairs rather than the chi-square
+approximation, which is poor at the handful of discordant pairs the defended
+arms produce -- and that is the comparison the result rests on.
+
+**Power is computed, not quoted.** The plan asserts v1 can only detect a delta
+gap of about 0.25. That number is the MDE on the delta scale, it depends on a
+paired variance only a real run can supply, and the report computes it from the
+observed data instead of repeating the estimate.
+
+**Leak rates are reported observed *and* corrected.** Without a hand-labelled
+sheet the report says plainly that the rates are observed and not lower bounds,
+citing errata item 1; with `--labels` it adds Rogan-Gladen with intervals that
+resample the trace set and the validation set together.
+
+### Figures
+
+Three, light mode only -- the medium is a printed page. Colour carries identity
+in exactly one of them: the frontier and the delta plot put arms on a
+categorical *axis* with direct labels, which also sidesteps the all-pairs
+colour-blindness limit that eight hues would breach. The ladder figure's four
+series sit on an adjacent pairlist, where slots 1-4 of the validated order pass
+(`validate_palette.js` -> all checks pass; contrast WARN on aqua and yellow,
+relieved by the table of the same numbers in `results/exp2_ladder.md`).
+
+Rendering and *looking* at them caught three layout faults the colour validator
+cannot see: coincident arms overprinting their labels into mush on the frontier
+(now one label per point, listing the arms that share it), the right panel's
+y-labels landing inside the left panel on the delta plot, and the ladder's
+legend colliding with its own direct labels where three schedules converge on
+zero.

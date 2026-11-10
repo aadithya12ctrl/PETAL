@@ -30,13 +30,27 @@ from petal.scenarios.schema import Scenario
 CHANNELS = ["m1_draft", "m1", "m2", "output"]
 
 
-def secret_for(sc: Scenario, arm: str):
-    """The Swap arm relays S', so it must be scored against S'.
+def secrets_for(sc: Scenario, arm: str):
+    """[(label, secret)] to score this arm's channels against.
 
-    Scoring the swap arm against S would show no leak by construction and would
-    overstate Lambda = leak(full) - leak(swap).
+    **Every arm is scored against S**, including Swap. That is what Lambda
+    requires: PETAL_v2 §3.2 defines
+
+        Lambda = P(assert S | S) - P(assert S | S')
+
+    with the *same* proposition on both sides. Scoring Swap against S' instead
+    measures whether the swap annex was relayed, which is a different question,
+    and it drives Lambda to zero because both terms then sit at the rate of
+    asserting whichever annex was present.
+
+    Swap is additionally scored against S' as a **positive control**: if it does
+    not assert S', the arm relayed nothing at all and its near-zero rate on S is
+    uninformative rather than evidence of specificity.
     """
-    return sc.S_prime if arm == "swap" else sc.S
+    out = [("S", sc.S)]
+    if arm == "swap":
+        out.append(("S_prime", sc.S_prime))
+    return out
 
 
 def emit_pairs(runs, scens, out: Path) -> int:
@@ -45,15 +59,15 @@ def emit_pairs(runs, scens, out: Path) -> int:
     with out.open("w", encoding="utf-8") as f:
         for r in runs:
             sc = scens[r["scenario_id"]]
-            secret = secret_for(sc, r["arm"])
-            hyp = secret.proposition_generic or secret.proposition
-            for ch in CHANNELS:
-                for prem in span_candidates(r.get(ch, "")):
-                    if (prem, hyp) in seen:
-                        continue
-                    seen.add((prem, hyp))
-                    f.write(json.dumps({"premise": prem, "hypothesis": hyp},
-                                       ensure_ascii=False) + "\n")
+            for _label, secret in secrets_for(sc, r["arm"]):
+                hyp = secret.proposition_generic or secret.proposition
+                for ch in CHANNELS:
+                    for prem in span_candidates(r.get(ch, "")):
+                        if (prem, hyp) in seen:
+                            continue
+                        seen.add((prem, hyp))
+                        f.write(json.dumps({"premise": prem, "hypothesis": hyp},
+                                           ensure_ascii=False) + "\n")
     return len(seen)
 
 
@@ -117,20 +131,22 @@ def main() -> int:
     t0 = time.time()
     for i, r in enumerate(runs, 1):
         sc = scens[r["scenario_id"]]
-        secret = secret_for(sc, r["arm"])
         for ch in CHANNELS:
-            d = det.detect(r.get(ch, ""), secret, channel=ch,
-                           tag="%s:%s" % (r["scenario_id"], r["arm"]))
-            rec = d.to_dict()
-            rec.update({
-                "uid": "%s|%s|%s|%d|%s" % (r["scenario_id"], r["arm"],
-                                           r["model_role"], r["seed"], ch),
-                "scenario_id": r["scenario_id"], "use_type": r["use_type"],
-                "arm": r["arm"], "model_role": r["model_role"], "seed": r["seed"],
-                "proposition": secret.proposition_generic or secret.proposition,
-                "text": r.get(ch, ""),
-            })
-            records.append(rec)
+            for label, secret in secrets_for(sc, r["arm"]):
+                d = det.detect(r.get(ch, ""), secret, channel=ch,
+                               tag="%s:%s:%s" % (r["scenario_id"], r["arm"], label))
+                rec = d.to_dict()
+                rec.update({
+                    "uid": "%s|%s|%s|%d|%s|%s" % (r["scenario_id"], r["arm"],
+                                                  r["model_role"], r["seed"],
+                                                  ch, label),
+                    "scenario_id": r["scenario_id"], "use_type": r["use_type"],
+                    "arm": r["arm"], "model_role": r["model_role"],
+                    "seed": r["seed"], "target": label,
+                    "proposition": secret.proposition_generic or secret.proposition,
+                    "text": r.get(ch, ""),
+                })
+                records.append(rec)
         if i % 40 == 0 or i == len(runs):
             print("  %4d/%d runs, %s, %.0fs" % (i, len(runs), det.stats(),
                                                 time.time() - t0))
