@@ -161,10 +161,15 @@ def default_config() -> Config:
         ),
         "dev": ModelSpec(
             role="dev", model="openai/gpt-oss-20b",
-            temperature=0.7, max_tokens=400,
-            # a reasoning model: reasoning tokens bill as output, so the cheap
-            # audit role is pinned low or the "cents" pilot is not cents
+            # Also a reasoning model, so effort is pinned low: reasoning tokens
+            # bill as output and the cheap audit role would not be cheap.
+            # max_tokens 900 for the same reason as agent_a -- the first pilot
+            # ran at 400 and truncated 10.3% of its responses, five times the
+            # guard's threshold, which would have made the audit's Full-arm
+            # accuracy a measurement of the token cap.
+            temperature=0.7, max_tokens=900,
             reasoning_effort="low",
+            provider_order=["DeepInfra"], quantization="bf16",
         ),
     }
     return cfg

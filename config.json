@@ -52,15 +52,17 @@
   "dev": {
    "allow_fallbacks": false,
    "fallback_model": null,
-   "max_tokens": 400,
+   "max_tokens": 900,
    "model": "openai/gpt-oss-20b",
-   "provider_order": [],
+   "provider_order": [
+    "DeepInfra"
+   ],
    "require_parameters": true,
    "role": "dev",
    "temperature": 0.7,
    "reasoning_effort": "low",
    "reasoning_enabled": null,
-   "quantization": ""
+   "quantization": "bf16"
   },
   "judge": {
    "allow_fallbacks": false,
