@@ -776,3 +776,43 @@ class TestExactRelayAdversary(unittest.TestCase):
         exact = IM.relay_leakage_exact(runs, self.scens)["decision_only"]
         self.assertEqual(weak["mi_lower_bits"], 0.0)
         self.assertGreater(exact["mi_bits"], 1.0)
+
+
+class TestPrefreezeSafeguards(unittest.TestCase):
+    """The two safeguards pinned before the freeze."""
+
+    def test_edited_scenarios_covers_categories_not_just_failures(self):
+        from petal import prereg
+        ed = prereg.edited_scenarios()
+        # the audit flagged 5 scenarios; the edits were to categories, so the
+        # excluded set must be wider than that or it is the flattering subset
+        self.assertGreater(len(ed), 5)
+        self.assertLess(len(ed), 30)
+        self.assertEqual(ed, sorted(set(ed)))
+
+    def test_subset_drops_scenarios_consistently(self):
+        from petal import analysis as A
+        p = A.Panel(use_type="decision", scenarios=["a", "b", "c"])
+        p.utility = {"full": [1.0, 0.0, 1.0]}
+        p.relay_tokens = {"full": [10.0, 20.0, 30.0]}
+        p.leak = {"full": {"m1": [True, False, True]}}
+        p.leak_control = {"full": {}}
+        p.u_max_no_s = [1.0, 1.0, 1.0]
+        q = A.subset(p, {"b"})
+        self.assertEqual(q.scenarios, ["a", "c"])
+        self.assertEqual(q.utility["full"], [1.0, 1.0])
+        self.assertEqual(q.leak["full"]["m1"], [True, True])
+        self.assertEqual(q.u_max_no_s, [1.0, 1.0])
+
+    def test_swap_gains_certainty_but_learns_nothing_true(self):
+        from petal import paths
+        scens = [Scenario.from_dict(d) for d in json.loads(
+            (paths.SCENARIOS / "scenarios.json").read_text(encoding="utf-8"))]
+        dec = [s for s in scens if s.use_type == "decision"][:10]
+        runs = [{"scenario_id": s.id, "arm": "swap", "use_type": "decision",
+                 "m1": s.S_prime.statement, "chosen": s.correct_under_S_prime}
+                for s in dec]
+        out = IM.relay_leakage_exact(runs, scens)["swap"]
+        self.assertGreater(out["mi_bits"], 1.0)            # certainty gained
+        self.assertEqual(out["mi_about_true_s_bits"], 0.0)  # about the true S
+        self.assertEqual(out["recovery"], 0.0)

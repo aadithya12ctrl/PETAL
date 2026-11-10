@@ -641,6 +641,76 @@
    }
   }
  },
+ "robustness": {
+  "content": {
+   "n_all": 30,
+   "n_excluded": 6,
+   "edited_scenarios": [
+    "hr_leave/content/01",
+    "hr_leave/content/04",
+    "hr_leave/content/05",
+    "insurance_claims/content/02",
+    "insurance_claims/content/04",
+    "legal_intake/content/04"
+   ],
+   "delta_over_ceiling": {
+    "petal_text": {
+     "point": 0.0,
+     "lo": 0.0,
+     "hi": 0.0,
+     "n": 24
+    },
+    "constraint_only": {
+     "point": 0.0,
+     "lo": 0.0,
+     "hi": 0.0,
+     "n": 24
+    },
+    "decision_only": {
+     "point": 1.0000000000000004,
+     "lo": 1.0000000000000004,
+     "hi": 1.0000000000000004,
+     "n": 24
+    }
+   },
+   "lambda": 1.0,
+   "phi_floor": 0.0
+  },
+  "decision": {
+   "n_all": 30,
+   "n_excluded": 6,
+   "edited_scenarios": [
+    "hr_leave/decision/01",
+    "hr_leave/decision/04",
+    "hr_leave/decision/05",
+    "insurance_claims/decision/02",
+    "insurance_claims/decision/04",
+    "legal_intake/decision/04"
+   ],
+   "delta_over_ceiling": {
+    "petal_text": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 24
+    },
+    "constraint_only": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 24
+    },
+    "decision_only": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 24
+    }
+   },
+   "lambda": 1.0,
+   "phi_floor": 0.0
+  }
+ },
  "decision_implied_leakage": {
   "uninformed": {
    "scope": "within-domain mean",

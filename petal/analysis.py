@@ -341,3 +341,26 @@ def power_note(p: Panel) -> dict[str, Any]:
     return {"n_scenarios": len(p.scenarios), "sd_paired_diff": sd,
             "u_full": u_full, "u_drop": u_drop,
             "mde_delta_80pct": mde_delta(sd, len(p.scenarios), u_full, u_drop)}
+
+
+def subset(p: Panel, drop_ids: Iterable[str]) -> Panel:
+    """A Panel with some scenarios removed, for the robustness check.
+
+    Five restricted-category texts were reworded between the audit pilot and
+    the freeze (see results/prefreeze_rule.md). The edits were to categories,
+    so they touch 12 of the 60 scenarios, not only the five that failed. Every
+    headline number is therefore reported twice -- on all 60, and with those 12
+    dropped -- so that a reader can check the edits did not make the result.
+    """
+    drop = set(drop_ids)
+    keep = [i for i, sid in enumerate(p.scenarios) if sid not in drop]
+    out = Panel(use_type=p.use_type, scenarios=[p.scenarios[i] for i in keep])
+    out.u_max_no_s = [p.u_max_no_s[i] for i in keep] if p.u_max_no_s else []
+    for arm in p.utility:
+        out.utility[arm] = [p.utility[arm][i] for i in keep]
+        out.relay_tokens[arm] = [p.relay_tokens.get(arm, [])[i] for i in keep]             if p.relay_tokens.get(arm) else []
+        out.leak[arm] = {ch: [v[i] for i in keep]
+                         for ch, v in p.leak.get(arm, {}).items()}
+        out.leak_control[arm] = {ch: [v[i] for i in keep]
+                                 for ch, v in p.leak_control.get(arm, {}).items()}
+    return out

@@ -100,6 +100,18 @@ One Holm family per use type, covering leak *and* utility tests together: the pa
 
 The plan asserts v1 can only detect a delta gap of about 0.25 or more. That number is this one, and it depends on a variance that only a real run can supply -- so it is computed here rather than quoted.
 
+### Robustness: excluding the edited scenarios
+
+Five restricted-category texts were reworded between the audit pilot and the freeze, each fixing a contradiction statable from the scenario text alone (every diff is in `results/prefreeze_rule.md`). The edits were to *categories*, so they touch **6 of this panel's 30 scenarios** -- not only the ones that failed the audit, which would have been the narrower and more flattering set to exclude. This check was pre-registered before the freeze.
+
+| quantity | all 30 | excluding 6 edited (n=24) |
+|---|---|---|
+| delta/ceiling, `petal_text` | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
+| delta/ceiling, `constraint_only` | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
+| delta/ceiling, `decision_only` | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| Lambda | 1.000 | 1.000 |
+| Phi_floor | 0.000 | 0.000 |
+
 ---
 
 ## Decision-type tasks (n = 30 scenarios)
@@ -251,17 +263,17 @@ Computed exactly from the generator, under the **generator-aware** adversary. Th
 
 The figures above assume the relay carries *only* what its arm is named for. A real `constraint_only` relay may write "unavailable Tuesday and Thursday mornings due to ongoing treatment" -- a partial reason the assertion detector can score clean while it narrows S further. So the computed value is a **floor**, and the measured one is what an adversary reading the relay text actually recovers.
 
-| arm | computed floor | names a condition | disclosed (bits) | recovers S | learned adversary (bits, LB) |
-|---|---|---|---|---|---|
-| full | 2.585 bits | 1.000 | **2.585** | 1.000 | 1.238 |
-| constraint_only | 1.585 bits | 0.000 | **1.585** | 0.500 | 0.000 |
-| decision_only | 1.585 bits | 0.000 | **1.585** | 0.500 | 0.000 |
-| petal_text | - | 0.000 | **1.585** | 0.500 | 0.000 |
-| b6_placebo | - | 0.000 | **1.585** | 0.500 | 0.000 |
-| b4_restriction | - | 0.000 | **1.585** | 0.150 | 0.000 |
-| b1_privacy | - | 0.000 | **1.585** | 0.500 | 0.000 |
-| drop | - | 0.000 | **1.585** | 0.133 | 0.000 |
-| swap | - | 1.000 | **2.585** | 0.000 | 0.000 |
+| arm | computed floor | names a condition | certainty gained (bits) | about the true S (bits) | recovers S | learned adversary (bits, LB) |
+|---|---|---|---|---|---|---|
+| full | 2.585 bits | 1.000 | 2.585 | **1.911** | 1.000 | 1.238 |
+| constraint_only | 1.585 bits | 0.000 | 1.585 | **0.126** | 0.500 | 0.000 |
+| decision_only | 1.585 bits | 0.000 | 1.585 | **0.126** | 0.500 | 0.000 |
+| petal_text | - | 0.000 | 1.585 | **0.126** | 0.500 | 0.000 |
+| b6_placebo | - | 0.000 | 1.585 | **0.126** | 0.500 | 0.000 |
+| b4_restriction | - | 0.000 | 1.585 | **0.000** | 0.150 | 0.000 |
+| b1_privacy | - | 0.000 | 1.585 | **0.126** | 0.500 | 0.000 |
+| drop | - | 0.000 | 1.585 | **0.000** | 0.133 | 0.000 |
+| swap | - | 1.000 | 2.585 | **0.000** | 0.000 | 0.000 |
 
 **Disclosed (bits) is the headline.** The relay is read for what it names -- a condition, by surface form -- and the exact posterior is applied: naming a condition identifies it; naming none leaves the adversary with what the answer implies, measured per arm rather than assumed.
 
@@ -286,4 +298,16 @@ It is a property of the construction, not of the models: the scenarios were buil
 - smallest delta gap detectable at 80% power: **0.325**
 
 The plan asserts v1 can only detect a delta gap of about 0.25 or more. That number is this one, and it depends on a variance that only a real run can supply -- so it is computed here rather than quoted.
+
+### Robustness: excluding the edited scenarios
+
+Five restricted-category texts were reworded between the audit pilot and the freeze, each fixing a contradiction statable from the scenario text alone (every diff is in `results/prefreeze_rule.md`). The edits were to *categories*, so they touch **6 of this panel's 30 scenarios** -- not only the ones that failed the audit, which would have been the narrower and more flattering set to exclude. This check was pre-registered before the freeze.
+
+| quantity | all 30 | excluding 6 edited (n=24) |
+|---|---|---|
+| delta/ceiling, `petal_text` | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| delta/ceiling, `constraint_only` | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| delta/ceiling, `decision_only` | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| Lambda | 1.000 | 1.000 |
+| Phi_floor | 0.000 | 0.000 |
 

@@ -80,6 +80,44 @@ class Preregistration:
         return asdict(self)
 
 
+#: Categories whose annex text was reworded during the pre-freeze audit, each
+#: because it described a *need* matching the barred option's own requirement
+#: (or, for `undocumented`, named the remedy that the service constraint
+#: removes). Every headline number is reported a second time with the scenarios
+#: these touch excluded, so a reader need not take the edits on trust.
+EDITED_CATEGORIES = ("domestic_abuse", "pregnancy", "self_harm",
+                     "alcohol_detox", "undocumented")
+
+
+def edited_scenarios() -> list[str]:
+    """Scenario ids whose S or S' is one of `EDITED_CATEGORIES`.
+
+    Wider than the five scenarios the audit flagged: the edits were to
+    *categories*, so every instance drawing one is affected, whether or not it
+    failed. Excluding only the five that failed would be the narrower and more
+    flattering choice.
+    """
+    import json as _json
+    from .scenarios.templates import DOMAINS
+    forms = {}
+    for dom in DOMAINS.values():
+        for c in dom["categories"]:
+            if c["key"] in EDITED_CATEGORIES:
+                forms[tuple(c["paraphrases"])] = c["key"]
+    out = []
+    try:
+        data = _json.loads((paths.SCENARIOS / "scenarios.json")
+                           .read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    for d in data:
+        for which in ("S", "S_prime"):
+            if tuple(d[which].get("paraphrases", [])) in forms:
+                out.append(d["id"])
+                break
+    return sorted(out)
+
+
 def path() -> Path:
     return paths.RESULTS / "preregistration.json"
 

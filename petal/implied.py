@@ -605,13 +605,23 @@ def relay_leakage_exact(runs: Sequence[dict], scenarios: Sequence[Scenario], *,
     out: dict[str, dict[str, float]] = {}
     for arm, a in agg.items():
         n = a["n"] or 1.0
+        from .probe import error_upper_ci, fano_mi_lower
+        rec = a["hit"] / n
+        k = max(2, int(round(2 ** h_prior)))
+        # Certainty the adversary gains, versus what they learn about the
+        # *actual* S. These agree everywhere except Swap, whose relay names S'
+        # -- there the first is maximal and the second is nil, and reporting
+        # only the first would make the control arm read as the leakiest in
+        # the study rather than as misleading.
+        mi_true = fano_mi_lower(error_upper_ci(int(round(n * (1.0 - rec))), int(n)), k)
         out[arm] = {
             "n": int(n),
             "names_condition": (a["named_true"] + a["named_other"]) / n,
             "names_true_condition": a["named_true"] / n,
-            "recovery": a["hit"] / n,
+            "recovery": rec,
             "chance": base.chance_recovery,
             "mi_bits": max(0.0, h_prior - a["h_cond"] / n),
+            "mi_about_true_s_bits": mi_true,
             "h_prior_bits": h_prior,
         }
     return out

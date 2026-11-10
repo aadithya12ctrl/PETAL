@@ -432,9 +432,10 @@ def main() -> int:
                   "clean while it narrows S further. So the computed value is a "
                   "**floor**, and the measured one is what an adversary reading the "
                   "relay text actually recovers.", "",
-                  "| arm | computed floor | names a condition | disclosed "
-                  "(bits) | recovers S | learned adversary (bits, LB) |",
-                  "|---|---|---|---|---|---|"]
+                  "| arm | computed floor | names a condition | certainty "
+                  "gained (bits) | about the true S (bits) | recovers S | "
+                  "learned adversary (bits, LB) |",
+                  "|---|---|---|---|---|---|---|"]
             for arm, obs in [("full", "reason"), ("constraint_only", "constraint"),
                              ("decision_only", "answer"), ("petal_text", None),
                              ("b6_placebo", None), ("b4_restriction", None),
@@ -444,9 +445,10 @@ def main() -> int:
                     continue
                 m = relay_m.get(arm) or {}
                 floor = ("%.3f bits" % grad[obs].mutual_information_bits) if obs else "-"
-                L.append("| %s | %s | %.3f | **%.3f** | %.3f | %.3f |"
+                L.append("| %s | %s | %.3f | %.3f | **%.3f** | %.3f | %.3f |"
                          % (arm, floor, x["names_condition"], x["mi_bits"],
-                            x["recovery"], m.get("mi_lower_bits", float("nan"))))
+                            x["mi_about_true_s_bits"], x["recovery"],
+                            m.get("mi_lower_bits", float("nan"))))
             L += ["", "**Disclosed (bits) is the headline.** The relay is read for "
                   "what it names -- a condition, by surface form -- and the exact "
                   "posterior is applied: naming a condition identifies it; naming "
@@ -525,6 +527,44 @@ def main() -> int:
                   "0.25 or more. That number is this one, and it depends on a "
                   "variance that only a real run can supply -- so it is computed "
                   "here rather than quoted.", ""]
+
+        # --- pre-registered robustness check ------------------------------
+        from petal import prereg as _pre
+        edited = set(_pre.edited_scenarios())
+        touched = [sid for sid in p.scenarios if sid in edited]
+        if touched:
+            q = A.subset(p, edited)
+            L += ["### Robustness: excluding the edited scenarios", "",
+                  "Five restricted-category texts were reworded between the audit "
+                  "pilot and the freeze, each fixing a contradiction statable from "
+                  "the scenario text alone (every diff is in "
+                  "`results/prefreeze_rule.md`). The edits were to *categories*, so "
+                  "they touch **%d of this panel's %d scenarios** -- not only the "
+                  "ones that failed the audit, which would have been the narrower "
+                  "and more flattering set to exclude. This check was pre-registered "
+                  "before the freeze."
+                  % (len(touched), len(p.scenarios)), "",
+                  "| quantity | all %d | excluding %d edited (n=%d) |"
+                  % (len(p.scenarios), len(touched), len(q.scenarios)),
+                  "|---|---|---|"]
+            dq = A.delta_normalised_table(q, ["petal_text", "constraint_only",
+                                              "decision_only"],
+                                          n_boot=cfg.n_bootstrap, seed=cfg.seed)
+            for arm in ("petal_text", "constraint_only", "decision_only"):
+                if arm in dn and arm in dq:
+                    L.append("| delta/ceiling, `%s` | %s | %s |"
+                             % (arm, dn[arm], dq[arm]))
+            for nm, fn in (("Lambda", A.lambda_causal), ("Phi_floor", A.phi_floor)):
+                a1, a2 = fn(p), fn(q)
+                L.append("| %s | %s | %s |"
+                         % (nm, "n/a" if a1 != a1 else "%.3f" % a1,
+                            "n/a" if a2 != a2 else "%.3f" % a2))
+            L.append("")
+            out_json.setdefault("robustness", {})[ut] = {
+                "n_all": len(p.scenarios), "n_excluded": len(touched),
+                "edited_scenarios": sorted(touched),
+                "delta_over_ceiling": {a: iv.to_dict() for a, iv in dq.items()},
+                "lambda": A.lambda_causal(q), "phi_floor": A.phi_floor(q)}
 
         out_json["use_types"][ut] = {
             "n_scenarios": len(p.scenarios),
