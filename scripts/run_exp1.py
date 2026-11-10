@@ -176,8 +176,21 @@ def main() -> int:
                 "would be indistinguishable from genuine failures.\n"
                 "If finish_reason is 'length' with reasoning_tokens at max_tokens, "
                 "the model is a reasoning model whose budget is too small: raise "
-                "max_tokens, set reasoning_effort, or pin an instruct variant."
-                % (100 * rep["rate"]))
+                "max_tokens, turn thinking off (reasoning_enabled=False), or pin "
+                "an instruct variant." % (100 * rep["rate"]))
+
+    if rep["n_truncated"]:
+        print("\nTRUNCATED AT max_tokens: %d of %d calls (%.1f%%)"
+              % (rep["n_truncated"], rep["n_calls"], 100 * rep["truncated_rate"]))
+        for k, v in sorted(rep["truncated_by"].items()):
+            print("   %-50s %d" % (k, v))
+        if rep["truncated_rate"] > 0.02:
+            raise SystemExit(
+                "\nrefusing to report this run: %.1f%% of calls were cut off at "
+                "max_tokens.\nA relay truncated mid-sentence is scored as a bad "
+                "answer exactly as an empty one is, and is just as silent -- it "
+                "still returns plenty of text, so an empty-only check passes it.\n"
+                "Raise max_tokens for the affected role." % (100 * rep["truncated_rate"]))
 
     missing = sum(r.gap_scores_missing for r in records)
     if missing:

@@ -440,3 +440,76 @@ class TestEmptyCompletionGuard(unittest.TestCase):
         c = self._client(["   \n  "])
         c.chat("agent_a", [{"role": "user", "content": "q"}])
         self.assertEqual(c.empty_report(1)["n_empty"], 1)
+
+
+class TestTruncationGuard(unittest.TestCase):
+    """Truncation is as silent as emptiness, and an empty-only check misses it.
+
+    Measured on qwen/qwen3.8-27b with thinking off: at max_tokens 400, seven of
+    ten planner calls came back with finish_reason="length" while returning
+    1500-1800 characters. Plenty of text, cut off mid-message, scored as a bad
+    answer. The empty-completion guard passed every one of them.
+    """
+
+    def _client(self, finishes):
+        from petal.client import LLMClient, MockBackend
+        from petal.config import default_config
+        seq = list(finishes)
+
+        class B(MockBackend):
+            def complete(self, spec, payload):
+                raw = super().complete(spec, payload)
+                raw["choices"][0]["finish_reason"] = seq.pop(0)
+                return raw
+
+        return LLMClient(default_config(), backend=B(responder=lambda s, p: "text here"),
+                         cache_enabled=False)
+
+    def test_truncated_but_non_empty_is_still_caught(self):
+        c = self._client(["length"] * 7 + ["stop"] * 3)
+        for i in range(10):
+            c.chat("agent_a", [{"role": "user", "content": "q%d" % i}])
+        rep = c.empty_report(10)
+        self.assertEqual(rep["n_empty"], 0)          # an empty-only check passes
+        self.assertEqual(rep["n_truncated"], 7)      # this one does not
+        self.assertAlmostEqual(rep["truncated_rate"], 0.7)
+
+    def test_clean_run_reports_neither(self):
+        c = self._client(["stop"] * 4)
+        for i in range(4):
+            c.chat("agent_a", [{"role": "user", "content": "q%d" % i}])
+        rep = c.empty_report(4)
+        self.assertEqual((rep["n_empty"], rep["n_truncated"]), (0, 0))
+
+
+class TestReasoningToggle(unittest.TestCase):
+    def test_enabled_false_is_sent(self):
+        from petal.client import LLMClient, MockBackend
+        from petal.config import default_config
+        cfg = default_config()
+        b = MockBackend(responder=lambda s, p: "ok")
+        LLMClient(cfg, backend=b, cache_enabled=False).chat(
+            "agent_a", [{"role": "user", "content": "q"}])
+        self.assertEqual(b.calls[-1].get("reasoning"), {"enabled": False})
+
+    def test_effort_is_sent_when_no_explicit_toggle(self):
+        from petal.client import LLMClient, MockBackend
+        from petal.config import default_config
+        cfg = default_config()
+        b = MockBackend(responder=lambda s, p: "ok")
+        LLMClient(cfg, backend=b, cache_enabled=False).chat(
+            "dev", [{"role": "user", "content": "q"}])
+        self.assertEqual(b.calls[-1].get("reasoning"), {"effort": "low"})
+
+    def test_plan_section_2_requires_thinking_off_for_agent_a(self):
+        from petal.config import default_config
+        self.assertIs(default_config().model("agent_a").reasoning_enabled, False)
+
+    def test_both_agent_roles_pin_a_provider(self):
+        from petal.config import default_config
+        cfg = default_config()
+        for role in ("agent_a", "agent_b"):
+            spec = cfg.model(role)
+            self.assertTrue(spec.provider_order, role)
+            self.assertFalse(spec.allow_fallbacks, role)
+            self.assertTrue(spec.quantization, role)

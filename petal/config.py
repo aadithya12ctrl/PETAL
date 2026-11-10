@@ -35,6 +35,17 @@ class ModelSpec:
     #: "low" on the cheap audit role keeps the pilot in cents; "" omits the
     #: field entirely for models that do not take it.
     reasoning_effort: str = ""
+    #: Tri-state. False sends {"enabled": false} and turns thinking OFF, which
+    #: is what PETAL_execution_plan.md section 2 specifies for the primary
+    #: agent family ("thinking off"). The client never sent it, so the model
+    #: thought by default and spent its whole max_tokens budget on reasoning
+    #: tokens: 14 of the first 19 real calls returned no content at all. None
+    #: omits the field entirely.
+    reasoning_enabled: bool | None = None
+    #: Recorded, not sent. The served weights' precision, so the paper can say
+    #: which numbers it is reporting. OpenRouter routed us to an fp4 host by
+    #: default; pinning is what makes this knowable at all.
+    quantization: str = ""
 
     def routing(self) -> dict[str, Any]:
         p: dict[str, Any] = {
@@ -123,12 +134,25 @@ def default_config() -> Config:
     cfg.models = {
         "agent_a": ModelSpec(
             role="agent_a", model="qwen/qwen3.8-27b",
-            temperature=0.7, max_tokens=400,
+            # Measured with thinking off: planner completions run 368-674
+            # tokens (median 445). At 400 seven of ten planner calls were cut
+            # off mid-message; a truncated relay is scored as a bad answer and
+            # says nothing about the model.
+            temperature=0.7, max_tokens=900,
+            # "thinking off", per plan section 2. Without it the model reasons
+            # and never reaches a visible answer.
+            reasoning_enabled=False,
+            # Pinned from the model's endpoints list: honours seed, accepts the
+            # reasoning toggle, and serves bf16 -- the highest precision on
+            # offer. Unpinned, OpenRouter routed to an fp4 host.
+            provider_order=["DeepInfra"], quantization="bf16",
             fallback_model="qwen/qwen3-30b-a3b-instruct-2507",
         ),
         "agent_b": ModelSpec(
             role="agent_b", model="meta-llama/llama-3.3-70b-instruct",
             temperature=0.7, max_tokens=400,
+            # not a reasoning model; pinned for the same reproducibility reason
+            provider_order=["CoreWeave"], quantization="fp16",
         ),
         "judge": ModelSpec(
             role="judge", model="deepseek/deepseek-v4-pro",

@@ -22,24 +22,32 @@
   "agent_a": {
    "allow_fallbacks": false,
    "fallback_model": "qwen/qwen3-30b-a3b-instruct-2507",
-   "max_tokens": 400,
+   "max_tokens": 900,
    "model": "qwen/qwen3.8-27b",
-   "provider_order": [],
+   "provider_order": [
+    "DeepInfra"
+   ],
    "require_parameters": true,
    "role": "agent_a",
    "temperature": 0.7,
-   "reasoning_effort": ""
+   "reasoning_effort": "",
+   "reasoning_enabled": false,
+   "quantization": "bf16"
   },
   "agent_b": {
    "allow_fallbacks": false,
    "fallback_model": null,
    "max_tokens": 400,
    "model": "meta-llama/llama-3.3-70b-instruct",
-   "provider_order": [],
+   "provider_order": [
+    "CoreWeave"
+   ],
    "require_parameters": true,
    "role": "agent_b",
    "temperature": 0.7,
-   "reasoning_effort": ""
+   "reasoning_effort": "",
+   "reasoning_enabled": null,
+   "quantization": "fp16"
   },
   "dev": {
    "allow_fallbacks": false,
@@ -50,7 +58,9 @@
    "require_parameters": true,
    "role": "dev",
    "temperature": 0.7,
-   "reasoning_effort": "low"
+   "reasoning_effort": "low",
+   "reasoning_enabled": null,
+   "quantization": ""
   },
   "judge": {
    "allow_fallbacks": false,
@@ -61,7 +71,9 @@
    "require_parameters": true,
    "role": "judge",
    "temperature": 0.0,
-   "reasoning_effort": ""
+   "reasoning_effort": "",
+   "reasoning_enabled": null,
+   "quantization": ""
   }
  },
  "n_bootstrap": 10000,

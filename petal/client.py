@@ -170,6 +170,9 @@ class LLMClient:
         #: difference is only visible in aggregate. `empty_report()` is what
         #: the runners check before they let a run stand.
         self.empty: list[dict[str, Any]] = []
+        #: Responses cut off at max_tokens. Tracked separately from `empty`
+        #: because the cause and the fix differ, but checked the same way.
+        self.truncated: list[dict[str, Any]] = []
         self.cache = cache if cache is not None else DiskCache(enabled=cache_enabled)
         self.meter = meter or CostMeter(cfg.spend_limit_usd, warn_at_usd=cfg.warn_at_usd,
                                         prices=prices or {})
@@ -214,7 +217,10 @@ class LLMClient:
         # effort can cost several times what max_tokens implies, so the effort
         # is pinned per role and participates in the cache key below -- two
         # runs at different efforts are different runs.
-        if getattr(spec, "reasoning_effort", ""):
+        enabled = getattr(spec, "reasoning_enabled", None)
+        if enabled is False:
+            payload["reasoning"] = {"enabled": False}
+        elif getattr(spec, "reasoning_effort", ""):
             payload["reasoning"] = {"effort": spec.reasoning_effort}
 
         key = request_key(payload, {"role": role, "backend": self.backend.name,
@@ -254,6 +260,17 @@ class LLMClient:
             cached=cached, tag=tag,
         )
         finish = choices[0].get("finish_reason")
+        if finish == "length":
+            # A message cut off mid-sentence is scored as a bad answer exactly
+            # as an empty one is, and is just as silent. Measured on
+            # qwen/qwen3.8-27b with thinking off: at max_tokens 400, seven of
+            # ten planner calls were truncated while returning plenty of text,
+            # so an empty-only check would have passed them all.
+            self.truncated.append({
+                "role": role, "model": spec.model, "provider": raw.get("provider"),
+                "completion_tokens": ct, "max_tokens": spec.max_tokens,
+                "chars": len(text), "cached": cached, "tag": tag,
+            })
         if not text:
             # A reasoning model can spend its whole max_tokens budget on
             # reasoning tokens and return finish_reason="length" with no
@@ -285,10 +302,14 @@ class LLMClient:
                       if e.get("finish_reason") == "length"
                       and e.get("reasoning_tokens")
                       and e["reasoning_tokens"] >= e.get("max_tokens", 0))
+        tby = Counter((e["model"], e.get("provider")) for e in self.truncated)
         return {"n_empty": len(self.empty), "n_calls": n_calls,
                 "rate": (len(self.empty) / n_calls) if n_calls else 0.0,
                 "budget_starved": starved,
-                "by": {"%s | %s | %s" % k: v for k, v in by.items()}}
+                "by": {"%s | %s | %s" % k: v for k, v in by.items()},
+                "n_truncated": len(self.truncated),
+                "truncated_rate": (len(self.truncated) / n_calls) if n_calls else 0.0,
+                "truncated_by": {"%s | %s" % k: v for k, v in tby.items()}}
 
 
 # ------------------------------------------------------------------ catalogue
