@@ -134,37 +134,54 @@ def fig_frontier(d: dict) -> None:
 def fig_delta(d: dict) -> None:
     """Dot-and-whisker, not bars: these are estimates with uncertainty.
 
-    The ceiling line is the point of the figure. delta near 1.0 means nothing on
-    its own; delta near its own ceiling does.
+    The x-axis is delta / ceiling, not delta. A raw delta of 0.43 on content and
+    1.00 on decision can describe the *same* achievement, because the two use
+    types have different amounts of room above the Drop arm for a defence that
+    never asserts S. Normalising puts both panels on one scale and makes the
+    reference line a single vertical at 1.0, which is what Conjecture C1 is a
+    claim about. Each panel's caption carries the raw ceiling it was divided by.
     """
     uts = [u for u in ("decision", "content") if u in d["use_types"]]
     order = ["petal_text", "decision_only", "b6_placebo", "b1_privacy",
              "b4_restriction"]
     if not uts:
         return
+    key = ("delta_over_ceiling"
+           if all(d["use_types"][u].get("delta_over_ceiling") for u in uts)
+           else "delta")
+    hi = 1.18
+    for u in uts:
+        for iv in d["use_types"][u].get(key, {}).values():
+            if iv["hi"] == iv["hi"]:
+                hi = max(hi, iv["hi"] + 0.12)
     fig, axes = plt.subplots(1, len(uts), figsize=(4.9 * len(uts), 3.4),
                              facecolor=SURFACE, squeeze=False, sharex=True)
     for j, ut in enumerate(uts):
         ax = axes[0][j]
         p = d["use_types"][ut]
-        arms = [a for a in order if a in p.get("delta", {})]
+        arms = [a for a in order if a in p.get(key, {})]
         ys = list(range(len(arms)))[::-1]
-        style(ax, xlabel="separability  delta", title="%s-type" % ut.capitalize(),
-              grid_axis="x")
-        ceil = p.get("delta_ceiling")
+        cl = (p.get("ceiling_delta_scale") or {}).get("point")
+        title = "%s-type" % ut.capitalize()
+        if key == "delta_over_ceiling" and cl:
+            title += "   (ceiling: delta = %.2f)" % cl
+        style(ax, xlabel=("separability  delta / ceiling"
+                          if key == "delta_over_ceiling" else "separability  delta"),
+              title=title, grid_axis="x")
+        ceil = 1.0 if key == "delta_over_ceiling" else p.get("u_max_no_s_mean")
         if ceil:
             ax.axvline(ceil, color=REFERENCE, linestyle=(0, (4, 3)), linewidth=1.4,
                        zorder=1)
             # flip the annotation inboard when the ceiling sits near the right
             # edge, or it clips off the panel
-            right = ceil > 0.7
-            ax.annotate("design ceiling %.2f" % ceil, (ceil, len(arms) - 0.35),
+            right = ceil > 0.7 * hi
+            ax.annotate("ceiling", (ceil, len(arms) - 0.35),
                         fontsize=8, color=INK_MUTED,
                         xytext=(-5 if right else 5, 0),
                         ha="right" if right else "left",
                         textcoords="offset points")
         for y, arm in zip(ys, arms):
-            iv = p["delta"][arm]
+            iv = p[key][arm]
             if iv["point"] != iv["point"]:
                 continue
             ax.plot([iv["lo"], iv["hi"]], [y, y], color=SERIES[0], linewidth=2,
@@ -180,11 +197,17 @@ def fig_delta(d: dict) -> None:
         # copy lands inside the neighbouring panel's plotting area
         ax.set_yticklabels([ARM_LABEL.get(a, a) for a in arms] if j == 0
                            else [""] * len(arms), fontsize=9, color=INK_2)
+        if j:
+            # the row labels are on the left panel only, so the tick marks
+            # here would be dashes pointing at nothing
+            ax.tick_params(axis="y", length=0)
         ax.set_ylim(-0.7, len(arms) - 0.1)
-        ax.set_xlim(-0.38, 1.18)
+        ax.set_xlim(-0.38, hi)
         ax.axvline(0, color=GRID, linewidth=1.0, zorder=1)
     fig.subplots_adjust(wspace=0.12)
-    fig.suptitle("Separability by use type, with 95% bootstrap intervals",
+    fig.suptitle("Separability against its own ceiling, 95% bootstrap intervals"
+                 if key == "delta_over_ceiling" else
+                 "Separability by use type, with 95% bootstrap intervals",
                  color=INK, fontsize=12, x=0.012, ha="left", y=1.04)
     save(fig, "fig2_delta")
 

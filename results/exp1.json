@@ -116,7 +116,45 @@
      "n": 30
     }
    },
-   "delta_ceiling": 0.4285714285714285,
+   "delta_over_ceiling": {
+    "petal_text": {
+     "point": 0.0,
+     "lo": 0.0,
+     "hi": 0.0,
+     "n": 30
+    },
+    "decision_only": {
+     "point": 1.0000000000000004,
+     "lo": 1.0000000000000004,
+     "hi": 1.0000000000000004,
+     "n": 30
+    },
+    "b6_placebo": {
+     "point": 0.0,
+     "lo": 0.0,
+     "hi": 0.0,
+     "n": 30
+    },
+    "b1_privacy": {
+     "point": 1.0000000000000004,
+     "lo": 1.0000000000000004,
+     "hi": 1.0000000000000004,
+     "n": 30
+    },
+    "b4_restriction": {
+     "point": 0.0,
+     "lo": 0.0,
+     "hi": 0.0,
+     "n": 30
+    }
+   },
+   "ceiling_delta_scale": {
+    "point": 0.4285714285714286,
+    "lo": 0.4285714285714286,
+    "hi": 0.4285714285714286,
+    "n": 30
+   },
+   "u_max_no_s_mean": 0.6,
    "decision_rule": {
     "2.0": {
      "available": true,
@@ -316,7 +354,45 @@
      "n": 30
     }
    },
-   "delta_ceiling": 1.0,
+   "delta_over_ceiling": {
+    "petal_text": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 30
+    },
+    "decision_only": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 30
+    },
+    "b6_placebo": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 30
+    },
+    "b1_privacy": {
+     "point": 1.0,
+     "lo": 1.0,
+     "hi": 1.0,
+     "n": 30
+    },
+    "b4_restriction": {
+     "point": 0.09090909090909088,
+     "lo": -0.26315789473684204,
+     "hi": 0.3478260869565218,
+     "n": 30
+    }
+   },
+   "ceiling_delta_scale": {
+    "point": 1.0,
+    "lo": 1.0,
+    "hi": 1.0,
+    "n": 30
+   },
+   "u_max_no_s_mean": 1.0,
    "decision_rule": {
     "2.0": {
      "available": true,
@@ -419,6 +495,220 @@
     "u_drop": 0.26666666666666666,
     "mde_delta_80pct": 0.33442378303903775
    }
+  }
+ },
+ "decision_implied_leakage": {
+  "uninformed": {
+   "scope": "within-domain mean",
+   "n_scenarios": 30,
+   "k_categories": 6,
+   "prior_entropy_bits": 2.622027904277231,
+   "conditional_entropy_bits": 1.542089030607797,
+   "mutual_information_bits": 1.0799388736694338,
+   "map_recovery": 0.4880952380952381,
+   "chance_recovery": 0.16269841269841268,
+   "prior": "uninformed",
+   "empirical_recovery": 0.9666666666666667,
+   "empirical_n": 60,
+   "per_domain": {
+    "clinic_scheduling": {
+     "scope": "clinic_scheduling",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.5,
+     "mutual_information_bits": 1.084962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "uninformed",
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.4197207891481876
+    },
+    "hr_leave": {
+     "scope": "hr_leave",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.5,
+     "mutual_information_bits": 1.084962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "uninformed",
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.4197207891481876
+    },
+    "insurance_claims": {
+     "scope": "insurance_claims",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.5,
+     "mutual_information_bits": 1.084962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "uninformed",
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.4197207891481876
+    },
+    "legal_intake": {
+     "scope": "legal_intake",
+     "n_scenarios": 5,
+     "k_categories": 7,
+     "prior_entropy_bits": 2.8073549220576037,
+     "conditional_entropy_bits": 1.7525341836467816,
+     "mutual_information_bits": 1.054820738410822,
+     "map_recovery": 0.42857142857142855,
+     "chance_recovery": 0.14285714285714285,
+     "prior": "uninformed",
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.3757347281325258
+    },
+    "loan_prescreen": {
+     "scope": "loan_prescreen",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.5,
+     "mutual_information_bits": 1.084962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "uninformed",
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.4197207891481876
+    },
+    "travel_accessibility": {
+     "scope": "travel_accessibility",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.5,
+     "mutual_information_bits": 1.084962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "uninformed",
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.4197207891481876
+    }
+   },
+   "fraction_of_secret": 0.41187161734921424
+  },
+  "generator_aware": {
+   "scope": "within-domain mean",
+   "n_scenarios": 30,
+   "k_categories": 3,
+   "prior_entropy_bits": 1.6126316673397456,
+   "conditional_entropy_bits": 0.03333333333333333,
+   "mutual_information_bits": 1.5792983340064124,
+   "map_recovery": 0.9833333333333333,
+   "chance_recovery": 0.3277777777777777,
+   "prior": "generator_aware",
+   "empirical_recovery": 0.9666666666666667,
+   "empirical_n": 60,
+   "per_domain": {
+    "clinic_scheduling": {
+     "scope": "clinic_scheduling",
+     "n_scenarios": 5,
+     "k_categories": 3,
+     "prior_entropy_bits": 1.584962500721156,
+     "conditional_entropy_bits": 0.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 1.0,
+     "chance_recovery": 0.3333333333333333,
+     "prior": "generator_aware",
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 1.0
+    },
+    "hr_leave": {
+     "scope": "hr_leave",
+     "n_scenarios": 5,
+     "k_categories": 3,
+     "prior_entropy_bits": 1.584962500721156,
+     "conditional_entropy_bits": 0.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 1.0,
+     "chance_recovery": 0.3333333333333333,
+     "prior": "generator_aware",
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 1.0
+    },
+    "insurance_claims": {
+     "scope": "insurance_claims",
+     "n_scenarios": 5,
+     "k_categories": 3,
+     "prior_entropy_bits": 1.584962500721156,
+     "conditional_entropy_bits": 0.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 1.0,
+     "chance_recovery": 0.3333333333333333,
+     "prior": "generator_aware",
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 1.0
+    },
+    "legal_intake": {
+     "scope": "legal_intake",
+     "n_scenarios": 5,
+     "k_categories": 3,
+     "prior_entropy_bits": 1.7509775004326937,
+     "conditional_entropy_bits": 0.2,
+     "mutual_information_bits": 1.5509775004326936,
+     "map_recovery": 0.9,
+     "chance_recovery": 0.3,
+     "prior": "generator_aware",
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.8857780868397355
+    },
+    "loan_prescreen": {
+     "scope": "loan_prescreen",
+     "n_scenarios": 5,
+     "k_categories": 3,
+     "prior_entropy_bits": 1.584962500721156,
+     "conditional_entropy_bits": 0.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 1.0,
+     "chance_recovery": 0.3333333333333333,
+     "prior": "generator_aware",
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 1.0
+    },
+    "travel_accessibility": {
+     "scope": "travel_accessibility",
+     "n_scenarios": 5,
+     "k_categories": 3,
+     "prior_entropy_bits": 1.584962500721156,
+     "conditional_entropy_bits": 0.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 1.0,
+     "chance_recovery": 0.3333333333333333,
+     "prior": "generator_aware",
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 1.0
+    }
+   },
+   "fraction_of_secret": 0.9793298531782394
   }
  }
 }

@@ -38,7 +38,10 @@ def main() -> int:
             if args.detections else
             [str(r).replace(".jsonl", "") + "_detections.jsonl" for r in runs])
 
-    panels, meta = A.load(runs, dets)
+    scen_index = A.scenario_index()
+    panels, meta = A.load(runs, dets, scenarios=scen_index)
+    all_runs = [json.loads(l) for r in runs
+                for l in Path(r).read_text(encoding="utf-8").splitlines() if l.strip()]
     val = None
     val_note = ("No hand-labelled validation set supplied, so leak rates are "
                 "**observed, not corrected**. PETAL_v2 errata item 1: an observed "
@@ -57,7 +60,44 @@ def main() -> int:
          "%d runs, %d detections, models %s, seeds %s."
          % (meta["n_runs"], meta["n_detections"], meta["models"], meta["seeds"]),
          "", "Every comparison is scenario-paired; the bootstrap resamples "
-         "scenarios, not runs.", "", "## Detector validation", "", val_note, ""]
+         "scenarios, not runs.", ""]
+
+    # --- provenance: was the testbed frozen, and how were gaps found? -----
+    from petal import prereg
+    pre = prereg.load()
+    L += ["## Provenance", ""]
+    if pre is None:
+        L.append("**No pre-registration.** The testbed was not frozen before these "
+                 "runs, so nothing rules out scenario fixes made after seeing the "
+                 "results, which would be selection on the outcome. See "
+                 "`petal/prereg.py`.")
+    else:
+        same = prereg.current_scenarios_sha() == pre.scenarios_sha256
+        L.append("Testbed frozen %s at `%s` (%d scenarios, git `%s`), audited on "
+                 "`%s`. scenarios.json %s the frozen hash."
+                 % (pre.created_utc, pre.scenarios_sha256[:12], pre.n_scenarios,
+                    (pre.git.get("commit") or "?")[:8], pre.audit_model,
+                    "matches" if same else "**NO LONGER MATCHES**"))
+        L += ["", "Exclusion rule, fixed before the run: %s" % pre.exclusion_rule]
+        for n in pre.notes:
+            L.append("- re-freeze: %s" % n)
+    scorers = sorted({r.get("gap_scan", {}).get("scorer") for r in all_runs
+                      if r.get("gap_scan")} - {None})
+    miss = sum(r.get("gap_scores_missing", 0) for r in all_runs)
+    if scorers:
+        L += ["", "Petal gap scan: %s%s." % (
+            ", ".join("`%s`" % s for s in scorers),
+            "; %d spans had no entailment score and were treated as clean" % miss
+            if miss else "")]
+        if any(s == "lexical" for s in scorers):
+            L.append("")
+            L.append("**This is the lexical-gap petal.** Gaps were found by surface "
+                     "form while leaks are scored by entailment, so a paraphrase the "
+                     "form list does not cover passes the petal unmasked and is then "
+                     "counted against it. The petal's leak rate here is an upper "
+                     "bound on the mechanism and its delta a lower bound; the "
+                     "entailment-backed pass is `scripts/emit_gap_pairs.py`.")
+    L += ["", "## Detector validation", "", val_note, ""]
 
     out_json: dict = {"meta": meta, "use_types": {}}
 
@@ -102,33 +142,44 @@ def main() -> int:
               "the defence.", ""]
 
         # --- delta -------------------------------------------------------
-        ceiling = None
-        try:
-            from petal.scenarios.schema import Scenario
-            scens = {s.id: s for s in (Scenario.from_dict(d) for d in json.loads(
-                (paths.SCENARIOS / "scenarios.json").read_text(encoding="utf-8")))}
-            cs = [scens[s].delta_ceiling for s in p.scenarios if s in scens]
-            ceiling = sum(cs) / len(cs) if cs else None
-        except (OSError, KeyError, json.JSONDecodeError):
-            pass
-
         dt = A.delta_table(p, DELTA_ARMS, n_boot=cfg.n_bootstrap, seed=cfg.seed)
+        cl = A.ceiling(p, n_boot=cfg.n_bootstrap, seed=cfg.seed)
+        dn = A.delta_normalised_table(p, DELTA_ARMS, n_boot=cfg.n_bootstrap,
+                                      seed=cfg.seed)
+        design_ceiling = (sum(p.u_max_no_s) / len(p.u_max_no_s)
+                          if A.has_ceiling(p) else None)
+
         L += ["### Separability delta", "",
               "delta = (U_arm - U_drop) / (U_full - U_drop), as a ratio of means "
               "over scenario-paired bootstrap resamples. A ratio of means, not a "
               "mean of ratios: per scenario the denominator is often 0 and "
               "averaging per-scenario ratios would drop exactly the scenarios "
               "that carry no information about delta.", ""]
-        if ceiling is not None:
-            L.append("Design ceiling for this use type: **%.3f** -- the largest "
-                     "delta any non-asserting defence could reach here. Read each "
-                     "delta against it." % ceiling)
-            L.append("")
-        L += ["| arm | delta [95% CI] | fraction of ceiling |", "|---|---|---|"]
+        if cl is not None:
+            L += ["**Ceiling, on delta's own scale: %s.** A perfect non-asserting "
+                  "answer scores %.3f here on average (decision tasks: 1.0, since "
+                  "choosing correctly asserts nothing; content tasks: the permitted "
+                  "plus abstract tiers). Pushed through the identical estimator, "
+                  "that is the delta such an answer would earn."
+                  % (cl, design_ceiling or float("nan")), "",
+                  "This is *not* the `delta_ceiling` the scenario schema publishes. "
+                  "That one is normalised by the chance floor and a perfect 1.0, "
+                  "both design quantities; this one by the Drop and Full arms' "
+                  "measured utilities, as delta is. The two scales differ whenever "
+                  "U_drop != chance or U_full != 1.0, which is always, so dividing "
+                  "a measured delta by the schema's number misstates how much of "
+                  "the available room an arm reached.", "",
+                  "**delta / ceiling is the headline.** It is resampled as one "
+                  "quantity -- (U_arm - U_drop) / (U_maxNoS - U_drop), the "
+                  "(U_full - U_drop) cancelling -- rather than divided after the "
+                  "fact, so its CI accounts for the two terms sharing scenarios. "
+                  "1.0 means the arm reached everything available to a defence "
+                  "that never asserts S. It is the only figure comparable across "
+                  "use types, and so the one Conjecture C1 is read from.", ""]
+        L += ["| arm | delta [95% CI] | delta / ceiling [95% CI] |", "|---|---|---|"]
         for arm, iv in dt.items():
-            frac = ("-" if not ceiling or iv.point != iv.point
-                    else "%.2f" % (iv.point / ceiling))
-            L.append("| %s | %s | %s |" % (arm, iv, frac))
+            nv = dn.get(arm)
+            L.append("| %s | %s | %s |" % (arm, iv, nv if nv is not None else "-"))
         L.append("")
 
         # --- decision rule ----------------------------------------------
@@ -175,6 +226,13 @@ def main() -> int:
               "together: the paper reads them as one claim about whether the petal "
               "helps, so correcting them separately would understate the "
               "correction.", "",
+              "**Petal vs B6 placebo is a leak comparison, not a utility one.** On "
+              "decision tasks the two arms are expected to tie on utility by "
+              "construction: both fill the same spans of the same draft, and the "
+              "decision itself lives in the part of the draft neither of them "
+              "masks. A null there is the design working, not a finding. What the "
+              "placebo controls for is whether merely *occupying* the slot changes "
+              "the leak rate, so the leak row of that pair is the one to read.", "",
               "| test | p | p (Holm) | reject at 0.05 |", "|---|---|---|---|"]
         for name, r in sorted(t["holm"].items()):
             L.append("| %s | %s | %s | %s |"
@@ -183,6 +241,106 @@ def main() -> int:
                         "n/a" if r["p_adj"] != r["p_adj"] else "%.4f" % r["p_adj"],
                         "yes" if r["reject"] else "no"))
         L.append("")
+
+        # --- decision-implied leakage ------------------------------------
+        if ut == "decision":
+            from petal import implied as IM
+            chosen: dict[str, list[str]] = {}
+            for r in all_runs:
+                if r.get("arm") in ("decision_only", "petal_text") and r.get("chosen"):
+                    chosen.setdefault(r["scenario_id"], []).append(r["chosen"])
+            ils = {pr: IM.analyse(list(scen_index.values()), chosen=chosen,
+                                  prior=pr) for pr in IM.PRIORS}
+            il = ils["uninformed"]
+            ga = ils["generator_aware"]
+            out_json["decision_implied_leakage"] = {k: v.to_dict()
+                                                    for k, v in ils.items()}
+            L += ["### Decision-implied leakage", "",
+                  "A decision scenario is built so that S changes the answer -- that "
+                  "is what lets the Swap arm show the agent *used* S. The cost is "
+                  "that the answer is then a function of S, so the answer itself "
+                  "carries information about S. Which options were ruled out narrows "
+                  "the restricted category down, whatever the relay says.", "",
+                  "So on decision tasks there is a floor no relay-level defence can "
+                  "go below while still getting the task right. It is not "
+                  "Phi_floor, which is what an agent asserts with S absent; this "
+                  "survives a perfect defence, a perfect detector, and an agent that "
+                  "emits nothing but the chosen option. It is also outside Theorem "
+                  "T2, whose slack bound assumes S is independent of the output Y -- "
+                  "here Y is chosen *because* of S.", "",
+                  "Computed exactly from the generator, not probed: each category "
+                  "bars two of four options and a permitted constraint removes a "
+                  "third, so the posterior over categories given the answer has a "
+                  "closed form. It is computed per scenario and then averaged. "
+                  "Pooling scenarios, or pooling domains, would credit the "
+                  "adversary's uncertainty with things they can read straight off "
+                  "the case file -- which domain it is, and which option the "
+                  "service-level constraint removed.", "",
+                  "Two adversaries, because the gap between them is the finding:", "",
+                  "- **uninformed** -- knows the case file and the domain's list of "
+                  "restricted categories, nothing more.",
+                  "- **generator-aware** -- also knows that a scenario's restricted "
+                  "category always leaves exactly one viable option, because the "
+                  "construction is published in this paper. Categories that would "
+                  "leave two are then not candidates at all.", "",
+                  "| quantity | uninformed | generator-aware |", "|---|---|---|",
+                  "| candidate categories | %d | %d |"
+                  % (il.k_categories, ga.k_categories),
+                  "| H(S) | %.3f bits | %.3f bits |"
+                  % (il.prior_entropy_bits, ga.prior_entropy_bits),
+                  "| H(S \\| answer) | %.3f bits | %.3f bits |"
+                  % (il.conditional_entropy_bits, ga.conditional_entropy_bits),
+                  "| **I(answer; S)** | **%.3f bits** | **%.3f bits** |"
+                  % (il.mutual_information_bits, ga.mutual_information_bits),
+                  "| fraction of S implied by the answer | **%.1f%%** | **%.1f%%** |"
+                  % (100 * il.fraction_of_secret, 100 * ga.fraction_of_secret),
+                  "| adversary names the category | %.3f | %.3f |"
+                  % (il.map_recovery, ga.map_recovery),
+                  "| chance | %.3f | %.3f |"
+                  % (il.chance_recovery, ga.chance_recovery)]
+            if il.empirical_n:
+                L.append("| from answers the models actually gave (n=%d) | %.3f | "
+                         "%.3f |" % (il.empirical_n, il.empirical_recovery,
+                                     ga.empirical_recovery))
+            if il.empirical_n:
+                L += ["", "Note the empirical row sits near the generator-aware "
+                      "column under *both* priors. The uninformed adversary's MAP "
+                      "figure of %.3f is an average over answers that an ambiguous "
+                      "category could have produced -- but the builder never picks "
+                      "an ambiguous category, so no such answer is ever actually "
+                      "seen. On the answers the models really gave, even the "
+                      "uninformed adversary recovers S at %.3f. The uninformed "
+                      "column is a floor on a case that does not arise; the "
+                      "generator-aware column is what the testbed does."
+                      % (il.map_recovery, il.empirical_recovery)]
+            L += ["", "| domain | I, uninformed | I, generator-aware | "
+                  "recovery, generator-aware |", "|---|---|---|---|"]
+            for d in sorted(il.per_domain):
+                a, b = il.per_domain[d], ga.per_domain[d]
+                L.append("| %s | %.3f | %.3f | %.3f vs %.3f chance |"
+                         % (d, a["mutual_information_bits"],
+                            b["mutual_information_bits"], b["map_recovery"],
+                            b["chance_recovery"]))
+            L += ["",
+                  "**To the generator-aware adversary the correct answer is very "
+                  "nearly the whole secret**: %.1f%% of H(S), and the right category "
+                  "named %.0f%% of the time against a %.0f%% chance baseline. On "
+                  "this testbed, getting a decision task right *is* disclosing S to "
+                  "anyone who has read how the scenarios were built."
+                  % (100 * ga.fraction_of_secret, 100 * ga.map_recovery,
+                     100 * ga.chance_recovery), "",
+                  "So report this beside delta. A delta near 1.0 on decision tasks "
+                  "means the agent kept the use and dropped the disclosure, and that "
+                  "is still the finding -- but 'dropped the disclosure' cannot mean "
+                  "leakage went to zero, and a reader entitled to think it did would "
+                  "be misled. The relay-level measurements elsewhere in this report "
+                  "are leakage *through the relay text*; this is leakage through the "
+                  "task output, which no relay defence can touch.", "",
+                  "It is a property of the construction, not of the models: the "
+                  "scenarios were built so that S determines the answer, and that is "
+                  "what makes delta measurable at all. A testbed where S only "
+                  "*shifts* the answer distribution would have a lower floor and a "
+                  "weaker delta; the trade is stated here rather than hidden.", ""]
 
         pw = A.power_note(p)
         if pw:
@@ -203,7 +361,9 @@ def main() -> int:
                      for a in p.arms()},
             "lambda": lam, "phi_floor": flo,
             "delta": {a: iv.to_dict() for a, iv in dt.items()},
-            "delta_ceiling": ceiling,
+            "delta_over_ceiling": {a: iv.to_dict() for a, iv in dn.items()},
+            "ceiling_delta_scale": cl.to_dict() if cl is not None else None,
+            "u_max_no_s_mean": design_ceiling,
             "decision_rule": {str(k): A.decision_rule(p, kappa=k,
                                                       lam=cfg.lambda_length)
                               for k in [cfg.kappa] + list(cfg.kappa_sensitivity)},

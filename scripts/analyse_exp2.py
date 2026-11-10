@@ -55,10 +55,21 @@ def main() -> int:
     from petal.ladder import all_categories
     cats = all_categories()
 
-    # schedule -> hop -> (texts, truth indices)
+    # schedule -> hop -> (texts, truth indices), for each channel we probe.
+    #
+    # `sent`         the whole handover note, slot included
+    # `sent_no_slot` the same note with the ladder's own line cut out
+    #
+    # The second is the one that measures anything about the agents. The slot
+    # is written by `petal.chain.rewrite_slot` in code, so a probe reading it
+    # is reading a k-ary channel this repository implements: it satisfies T3 by
+    # construction and H4 cannot fail there. See `petal.chain.strip_slot`.
     data: dict[str, dict[int, tuple[list[str], list[int]]]] = defaultdict(
         lambda: defaultdict(lambda: ([], [])))
+    data_ns: dict[str, dict[int, tuple[list[str], list[int]]]] = defaultdict(
+        lambda: defaultdict(lambda: ([], [])))
     util: dict[str, list[float]] = defaultdict(list)
+    have_no_slot = False
     for r in runs:
         cat = cats[r["category"]]
         truth = idx_of.get(true_value_at(cat, ladder.rungs[0]))
@@ -71,6 +82,11 @@ def main() -> int:
             ts, ys = data[r["schedule"]][hp["hop"]]
             ts.append(hp["sent"])
             ys.append(truth)
+            if "sent_no_slot" in hp:
+                have_no_slot = True
+                ns, nys = data_ns[r["schedule"]][hp["hop"]]
+                ns.append(hp.get("sent_no_slot") or "")
+                nys.append(truth)
 
     L = ["# Experiment 2: ladder decay against Theorem T3", "",
          "Run file: `%s`" % args.runs,
@@ -132,6 +148,63 @@ def main() -> int:
              % (chance_error(k), fano_mi_lower(chance_error(k), k)))
     L.append("")
 
+    # ------------------------------------------------ the side-channel probe
+    side_fired: list[str] = []
+    if have_no_slot:
+        L += ["## Outside the slot: what the agents carry on their own", "",
+              "Everything above is a probe of a channel *this code writes*. "
+              "`petal.chain.rewrite_slot` applies the randomised response itself, "
+              "so the symbol in the slot was drawn from the rung's alphabet by "
+              "`petal.ladder.emit`: it satisfies T3 by construction, and H4 cannot "
+              "fail there however the agents behave. A decay curve that tracks the "
+              "bound is a test of this repository, not a result about relays.", "",
+              "The question that is about the agents is whether they carry S "
+              "*around* the slot -- restating the condition in their own prose, or "
+              "re-deriving it from the coarsened symbol and spelling it out again "
+              "downstream. So the probe is re-run on each note with the ladder's "
+              "line cut out. PETAL_v2 §4.3 puts exactly this outside T3's scope, "
+              "and information found here above the ladder's bound is the side "
+              "channel H4 was written to catch.", "",
+              "| schedule | hop | n | probe error | LB (cons.) | T3 UB | H4 (side) |",
+              "|---|---|---|---|---|---|---|"]
+        for sched in SCHEDULES:
+            if sched not in data_ns:
+                continue
+            for hop in sorted(data_ns[sched]):
+                texts, truth = data_ns[sched][hop]
+                res = probe.evaluate(texts, truth, hop=hop, schedule=sched)
+                if sched == "stochastic":
+                    ub = ladder.bound_at_hop(hop) * math.log2(k)
+                elif sched == "deterministic":
+                    ub = (0.0 if ladder.rung_for_hop(hop).k <= 1 else math.log2(k))
+                else:
+                    ub = math.log2(k)
+                flag = ""
+                if res.mi_lower_bits_conservative > ub + 1e-9:
+                    flag = "**FIRES**"
+                    side_fired.append(
+                        "%s hop %d: outside the slot, conservative LB %.2f > UB %.2f"
+                        % (sched, hop, res.mi_lower_bits_conservative, ub))
+                elif res.mi_lower_bits > ub + 1e-9:
+                    flag = "point est. only"
+                L.append("| %s | %d | %d | %.3f | %.3f | %.3f | %s |"
+                         % (sched, hop, res.n, res.error_rate,
+                            res.mi_lower_bits_conservative, ub, flag))
+                rows.append({**res.to_dict(), "t3_upper_bits": ub,
+                             "channel": "sent_no_slot"})
+        L += ["",
+              "The `none` schedule is the reference: it writes no slot, so its "
+              "no-slot column is the whole note and its numbers should match the "
+              "table above. Where a defended schedule's no-slot row is near the "
+              "`none` row, the ladder is coarsening a symbol while the prose "
+              "around it carries S regardless.", ""]
+    else:
+        L += ["## Outside the slot", "",
+              "Not available: this run file predates `sent_no_slot` "
+              "(`petal.chain.strip_slot`). Re-run Experiment 2 to get the "
+              "side-channel probe, without which the decay above is a property "
+              "of our own ladder code and not of the agents.", ""]
+
     L += ["## Task utility by schedule", ""]
     for sched in SCHEDULES:
         if util.get(sched):
@@ -159,15 +232,29 @@ def main() -> int:
         L.append("")
 
     L += ["## H4 verdict", ""]
+    if side_fired:
+        L.append("**H4 fires outside the slot.** This is the informative case: the "
+                 "ladder's own channel is bounded by construction, so a breach "
+                 "measured with the slot removed is S reaching the hop by a route "
+                 "the defender does not control.")
+        for f in side_fired:
+            L.append("- %s" % f)
+        L.append("")
+        L.append("PETAL_v2 §4.3 scopes T3 to the slot, so this does not contradict "
+                 "the theorem; it bounds what the theorem is worth in a relay where "
+                 "an agent writes free text beside the slot.")
+        L.append("")
     if fired:
-        L.append("**H4 fires.** Measured information exceeds the T3 bound at:")
+        L.append("**H4 fires on the full note.** Measured information exceeds the T3 "
+                 "bound at:")
         for f in fired:
             L.append("- %s" % f)
         L.append("")
-        L.append("That is a finding, not a bug in the algebra: it means S reaches the "
-                 "hop by a route the ladder does not control. The note's free text, "
-                 "written by the agent around the slot, is the first place to look.")
-    else:
+        L.append("Read this against the no-slot table: if the breach is there too, it "
+                 "is a side channel; if it is not, the ladder's own emissions carry "
+                 "more than the rung's eta allows, which would be an implementation "
+                 "fault in `petal.ladder.emit` rather than a finding.")
+    elif not side_fired:
         L.append("Measured information stays at or below the T3 bound at every hop of "
                  "every schedule, so there is no evidence of a channel the ladder does "
                  "not control. Note this is the weaker direction of the test: a bound "

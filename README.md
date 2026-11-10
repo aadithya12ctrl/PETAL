@@ -131,6 +131,22 @@ agents, not about our rubric. `tests/test_phase2.py` pins this down: an answer
 that satisfies every non-entailing rubric item and asserts nothing scores
 *exactly* 0.40.
 
+**That number is not the divisor, though — and getting this wrong was a real
+error.** The ceiling above is normalised by `U_chance` and by a perfect score of
+1.0; both are design quantities. The measured δ is normalised by what the Drop
+and Full arms *actually* scored. The two scales coincide only when
+U_drop = U_chance and U_full = 1.0, which is never exactly true: on the mock the
+content arms gave U_drop = 0.30 against a 0.30 chance floor but the decision arms
+gave U_drop = 0.267 against a 0.333 floor. Dividing a measured δ by the schema's
+number mixes the scales, which is why a content δ of 0.429 once looked like it
+was sitting "exactly on" a 0.40 ceiling — two different quantities that happened
+to be close. `petal.analysis.ceiling` recomputes it as
+(U_maxNoS − U_drop)/(U_full − U_drop) through the identical estimator, and
+`delta_normalised_table` estimates **δ/ceiling directly** rather than dividing
+two point estimates — the (U_full − U_drop) cancels, and resampling it as one
+quantity gives an honest CI for two terms that share scenarios. δ/ceiling is the
+headline, because it is the only figure comparable across use types.
+
 **Validation is a build gate.** `validate()` rejects a scenario whose swap leaves
 the answer unchanged, whose correct answer is reachable by elimination alone,
 whose rubric is all-entailing or none-entailing, or — the one that actually fired
@@ -219,9 +235,10 @@ the harness and the analysis can be asserted on at zero cost):
 | decision_only | 1.000 | 0.600 | 0 | 0 | 0 | 0 |
 
 The petal and placebo rows show the mechanism working on the channel: the draft
-leaks, the relay does not. Measured δ lands exactly on each use type's designed
-ceiling (decision 1.000, content 0.429), which is what we want from a harness
-test — the real question is where a real model lands inside that range.
+leaks, the relay does not. Measured δ/ceiling is 1.000 for both use types — the
+scripted agent reaches everything a non-asserting defence could — which is what
+we want from a harness test. The real question is where a real model lands
+inside that range.
 
 **Cost note.** Draft sharing plus the cache turns 1,500 logical calls into 1,234
 paid ones per model (2.57 per run, not 3), so Experiment 1 should come in ~14%
@@ -491,3 +508,139 @@ cannot see: coincident arms overprinting their labels into mush on the frontier
 y-labels landing inside the left panel on the delta plot, and the ladder's
 legend colliding with its own direct labels where three schedules converge on
 zero.
+
+## Five corrections made before the first paid run
+
+A review of this README (not the code) landed between the last offline phase and
+the first paid one. Four of its five points were real defects that would have
+produced a misleading number on real data, and one was a conceptual gap in the
+paper rather than a bug. All five are fixed here.
+
+**1. The δ ceiling was on the wrong scale.** Covered above: the schema's
+`delta_ceiling` is a build-time design quantity, `petal.analysis.ceiling` is the
+divisor, and `δ/ceiling` is now the headline and the x-axis of figure 2.
+
+**2. The petal found its gaps with a weaker detector than the one grading it.**
+Gaps came from `LexicalScorer` (surface forms) while leaks were scored by the
+entailment cascade. The asymmetry runs the wrong way: a paraphrase the form list
+does not cover passes the petal unmasked and is then counted as a petal failure.
+The petal was being charged for leaks it was never shown.
+
+`petal.arms.make_gap_scorer` now takes an optional entailment cache and returns
+max(lexical, entailment) — the same signal that grades the result. The model
+does not fit in this machine's memory, so the pass is staged, which costs
+nothing extra because `full`, `b6_placebo` and `petal_text` share a planner
+call:
+
+```
+py -3.12 scripts/run_exp1.py --paid --yes --arms full,swap,drop,b1_privacy,b4_restriction,decision_only
+py -3.12 scripts/emit_gap_pairs.py --runs runs/<that file>.jsonl
+py -3.12 scripts/nli_score.py --pairs runs/<...>_gappairs.jsonl     # Colab
+py -3.12 scripts/run_exp1.py --paid --yes --arms petal_text,b6_placebo --gap-nli runs/<scores>.jsonl
+```
+
+The planner call in the second run is served from the LLM cache, so only the
+fill call is new. A span with no cached score is **counted, not silently treated
+as clean**: `run_exp1.py` refuses to finish with misses unless
+`--allow-missing-nli`. On the mock the entailment scan found 2 spans the lexical
+scan missed, out of 62. Where the entailment pass is skipped, the report labels
+the arm the **lexical-gap petal** and states that its leak rate is an upper
+bound on the mechanism and its δ a lower bound.
+
+**3. Experiment 2's probe was measuring our own code.** `chain.rewrite_slot`
+applies the randomised response itself, so the slot satisfies T3 by construction
+and H4 could not fail there however the agents behaved. A decay curve tracking
+the bound was a test of `petal/ladder.py`.
+
+Each hop now also records `sent_no_slot` (`chain.strip_slot`), and the analysis
+probes it against the same bound. That is the question about the agents: do they
+carry S *around* the slot, restating the condition in their own prose or
+re-deriving it from the coarsened symbol? PETAL_v2 §4.3 puts exactly this outside
+T3's scope, so information found there above the bound is the side channel H4 was
+written to catch. On the mock there is none — the scripted agent says nothing
+about S outside the slot — which is the null the real run is measured against.
+
+**4. Fixing scenarios after a paid run would have been selection on the
+outcome.** `audit_testbed.py` flags scenarios using real run output. Fixing what
+it flags on the *reported* data raises U_full and shifts every δ, with no step
+along the way that looks dishonest.
+
+`petal/prereg.py` separates the two. The audit does not need the reported model,
+so it runs on the cheap `dev` role (gpt-oss-20b) first; scenarios are fixed
+against that; then `scripts/freeze.py` records a hash of the frozen testbed, the
+matrix, the primary endpoints and the exclusion rule. `run_exp1.py --paid`
+refuses to start if `scenarios.json` no longer hashes to the frozen value, and
+`--refreeze` demands a `--why` that is kept in the file. The exclusion rule,
+fixed in advance: nothing is excluded; scenarios that fail an audit check on the
+reported run are reported as failing and kept in every aggregate. It is a lock,
+not a proof — but re-freezing is a visible act with a commit attached.
+
+**5. The hand-labelling stays.** Se/Sp for Rogan–Gladen cannot come from the
+NLI-plus-judge cascade, since that is the detector grading itself. Without the
+200-item sheet the report says plainly that rates are observed and not lower
+bounds. Unchanged, and confirmed.
+
+### Decision-implied leakage: the conceptual point
+
+The review's sixth item was not a bug. A decision scenario is built so that S
+*changes the answer* — that is what lets the Swap arm show an agent **used** S
+rather than merely talked about it. The cost is that the answer is then a
+function of S, so the answer carries information about S. Which options got ruled
+out narrows the restricted category down, whatever the relay says.
+
+This is not Φ_floor. Φ_floor is what an agent asserts when S was never in its
+context. This survives a perfect defence, a perfect detector, and an agent that
+emits nothing but the chosen option. It is also outside Theorem T2, whose slack
+bound assumes S ⊥ Y — here Y is chosen *because* of S.
+
+`petal/implied.py` computes it exactly rather than probing it, because the
+generator is known: each category bars two of four options, a permitted
+constraint removes a third, so the posterior over categories given the answer has
+a closed form. It is computed **per scenario** and then averaged — pooling
+scenarios, or pooling domains, would credit the adversary's uncertainty with
+things they read straight off the case file (which domain it is, which option the
+service-level constraint removed). Pooling domains alone inflates H(S) from 2.6
+bits to 5.2 and I from 1.1 to 3.6.
+
+Two adversaries, and the gap between them is the finding:
+
+| | uninformed | generator-aware |
+|---|---|---|
+| candidate categories | 6 | 3 |
+| H(S) | 2.622 bits | 1.613 bits |
+| I(answer; S) | 1.080 bits | **1.579 bits** |
+| fraction of S implied | 41.2% | **97.9%** |
+| adversary names the category | 0.488 | **0.983** |
+| chance | 0.163 | 0.328 |
+
+The generator-aware adversary knows what this paper publishes: that a scenario's
+restricted category always leaves exactly one viable option. **To them the
+correct answer is very nearly the whole secret.** On this testbed, getting a
+decision task right *is* disclosing S to anyone who has read how the scenarios
+were built.
+
+The empirical row settles which column is real. On answers the models actually
+gave, recovery is 0.967 under *both* priors — because the uninformed MAP of 0.488
+averages over answers an ambiguous category could have produced, and the builder
+never picks an ambiguous category, so no such answer is ever seen. The uninformed
+column is a floor on a case that does not arise.
+
+So δ and this number are reported together. A δ/ceiling near 1.0 on decision
+tasks means the agent kept the use and dropped the disclosure, and that remains
+the finding — but "dropped the disclosure" cannot mean leakage went to zero, and
+a reader entitled to think it did would be misled. The relay measurements are
+leakage *through the relay text*; this is leakage through the task output, which
+no relay-level defence can touch. It is a property of the construction, not of
+the models, and the trade is stated rather than hidden: a testbed where S only
+*shifted* the answer distribution would have a lower floor and a weaker δ.
+
+### The order Phase 7 now runs in
+
+1. Full 60 × 8 matrix on `dev` (gpt-oss-20b), cents — `--no-prereg`, since this
+   is the audit pilot.
+2. `audit_testbed.py` on it; fix whatever it flags; rebuild; commit.
+3. `freeze.py --audit-model dev`.
+4. 10-scenario paid dry run; recompute cost per run from the ledger.
+5. Paid Experiment 1, staged so the petal arms get the entailment-backed gap
+   scan (point 2 above).
+6. Hand-label 200 items; Experiment 2; analysis.

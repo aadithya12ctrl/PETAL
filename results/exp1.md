@@ -5,6 +5,14 @@ Runs: `exp1_mock_agent_a_seed20261109.jsonl`
 
 Every comparison is scenario-paired; the bootstrap resamples scenarios, not runs.
 
+## Provenance
+
+**No pre-registration.** The testbed was not frozen before these runs, so nothing rules out scenario fixes made after seeing the results, which would be selection on the outcome. See `petal/prereg.py`.
+
+Petal gap scan: `lexical`.
+
+**This is the lexical-gap petal.** Gaps were found by surface form while leaks are scored by entailment, so a paraphrase the form list does not cover passes the petal unmasked and is then counted against it. The petal's leak rate here is an upper bound on the mechanism and its delta a lower bound; the entailment-backed pass is `scripts/emit_gap_pairs.py`.
+
 ## Detector validation
 
 No hand-labelled validation set supplied, so leak rates are **observed, not corrected**. PETAL_v2 errata item 1: an observed rate is not a lower bound once the detector has false positives, and this one has them. Run `scripts/label.py` and pass `--labels`.
@@ -38,15 +46,19 @@ Both terms of Lambda are the rate of asserting *S*. The second is measured where
 
 delta = (U_arm - U_drop) / (U_full - U_drop), as a ratio of means over scenario-paired bootstrap resamples. A ratio of means, not a mean of ratios: per scenario the denominator is often 0 and averaging per-scenario ratios would drop exactly the scenarios that carry no information about delta.
 
-Design ceiling for this use type: **0.429** -- the largest delta any non-asserting defence could reach here. Read each delta against it.
+**Ceiling, on delta's own scale: 0.429 [0.429, 0.429].** A perfect non-asserting answer scores 0.600 here on average (decision tasks: 1.0, since choosing correctly asserts nothing; content tasks: the permitted plus abstract tiers). Pushed through the identical estimator, that is the delta such an answer would earn.
 
-| arm | delta [95% CI] | fraction of ceiling |
+This is *not* the `delta_ceiling` the scenario schema publishes. That one is normalised by the chance floor and a perfect 1.0, both design quantities; this one by the Drop and Full arms' measured utilities, as delta is. The two scales differ whenever U_drop != chance or U_full != 1.0, which is always, so dividing a measured delta by the schema's number misstates how much of the available room an arm reached.
+
+**delta / ceiling is the headline.** It is resampled as one quantity -- (U_arm - U_drop) / (U_maxNoS - U_drop), the (U_full - U_drop) cancelling -- rather than divided after the fact, so its CI accounts for the two terms sharing scenarios. 1.0 means the arm reached everything available to a defence that never asserts S. It is the only figure comparable across use types, and so the one Conjecture C1 is read from.
+
+| arm | delta [95% CI] | delta / ceiling [95% CI] |
 |---|---|---|
-| petal_text | 0.000 [0.000, 0.000] | 0.00 |
-| decision_only | 0.429 [0.429, 0.429] | 1.00 |
-| b6_placebo | 0.000 [0.000, 0.000] | 0.00 |
-| b1_privacy | 0.429 [0.429, 0.429] | 1.00 |
-| b4_restriction | 0.000 [0.000, 0.000] | 0.00 |
+| petal_text | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
+| decision_only | 0.429 [0.429, 0.429] | 1.000 [1.000, 1.000] |
+| b6_placebo | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
+| b1_privacy | 0.429 [0.429, 0.429] | 1.000 [1.000, 1.000] |
+| b4_restriction | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
 
 ### Decision rule (PETAL_v2 §4.2.4)
 
@@ -61,6 +73,8 @@ Petal wins iff dU > kappa x dLeak + lambda x dLength, against the restriction-aw
 ### Paired tests, Holm-corrected
 
 One Holm family per use type, covering leak *and* utility tests together: the paper reads them as one claim about whether the petal helps, so correcting them separately would understate the correction.
+
+**Petal vs B6 placebo is a leak comparison, not a utility one.** On decision tasks the two arms are expected to tie on utility by construction: both fill the same spans of the same draft, and the decision itself lives in the part of the draft neither of them masks. A null there is the design working, not a finding. What the placebo controls for is whether merely *occupying* the slot changes the leak rate, so the leak row of that pair is the one to read.
 
 | test | p | p (Holm) | reject at 0.05 |
 |---|---|---|---|
@@ -109,15 +123,19 @@ Both terms of Lambda are the rate of asserting *S*. The second is measured where
 
 delta = (U_arm - U_drop) / (U_full - U_drop), as a ratio of means over scenario-paired bootstrap resamples. A ratio of means, not a mean of ratios: per scenario the denominator is often 0 and averaging per-scenario ratios would drop exactly the scenarios that carry no information about delta.
 
-Design ceiling for this use type: **1.000** -- the largest delta any non-asserting defence could reach here. Read each delta against it.
+**Ceiling, on delta's own scale: 1.000 [1.000, 1.000].** A perfect non-asserting answer scores 1.000 here on average (decision tasks: 1.0, since choosing correctly asserts nothing; content tasks: the permitted plus abstract tiers). Pushed through the identical estimator, that is the delta such an answer would earn.
 
-| arm | delta [95% CI] | fraction of ceiling |
+This is *not* the `delta_ceiling` the scenario schema publishes. That one is normalised by the chance floor and a perfect 1.0, both design quantities; this one by the Drop and Full arms' measured utilities, as delta is. The two scales differ whenever U_drop != chance or U_full != 1.0, which is always, so dividing a measured delta by the schema's number misstates how much of the available room an arm reached.
+
+**delta / ceiling is the headline.** It is resampled as one quantity -- (U_arm - U_drop) / (U_maxNoS - U_drop), the (U_full - U_drop) cancelling -- rather than divided after the fact, so its CI accounts for the two terms sharing scenarios. 1.0 means the arm reached everything available to a defence that never asserts S. It is the only figure comparable across use types, and so the one Conjecture C1 is read from.
+
+| arm | delta [95% CI] | delta / ceiling [95% CI] |
 |---|---|---|
-| petal_text | 1.000 [1.000, 1.000] | 1.00 |
-| decision_only | 1.000 [1.000, 1.000] | 1.00 |
-| b6_placebo | 1.000 [1.000, 1.000] | 1.00 |
-| b1_privacy | 1.000 [1.000, 1.000] | 1.00 |
-| b4_restriction | 0.091 [-0.263, 0.348] | 0.09 |
+| petal_text | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| decision_only | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| b6_placebo | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| b1_privacy | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
+| b4_restriction | 0.091 [-0.263, 0.348] | 0.091 [-0.263, 0.348] |
 
 ### Decision rule (PETAL_v2 §4.2.4)
 
@@ -133,6 +151,8 @@ Petal wins iff dU > kappa x dLeak + lambda x dLength, against the restriction-aw
 
 One Holm family per use type, covering leak *and* utility tests together: the paper reads them as one claim about whether the petal helps, so correcting them separately would understate the correction.
 
+**Petal vs B6 placebo is a leak comparison, not a utility one.** On decision tasks the two arms are expected to tie on utility by construction: both fill the same spans of the same draft, and the decision itself lives in the part of the draft neither of them masks. A null there is the design working, not a finding. What the placebo controls for is whether merely *occupying* the slot changes the leak rate, so the leak row of that pair is the one to read.
+
 | test | p | p (Holm) | reject at 0.05 |
 |---|---|---|---|
 | leak decision_only vs b4_restriction | 1.0000 | 1.0000 | no |
@@ -143,6 +163,47 @@ One Holm family per use type, covering leak *and* utility tests together: the pa
 | utility petal_text vs b1_privacy | 1.0000 | 1.0000 | no |
 | utility petal_text vs b4_restriction | 0.0000 | 0.0001 | yes |
 | utility petal_text vs b6_placebo | 1.0000 | 1.0000 | no |
+
+### Decision-implied leakage
+
+A decision scenario is built so that S changes the answer -- that is what lets the Swap arm show the agent *used* S. The cost is that the answer is then a function of S, so the answer itself carries information about S. Which options were ruled out narrows the restricted category down, whatever the relay says.
+
+So on decision tasks there is a floor no relay-level defence can go below while still getting the task right. It is not Phi_floor, which is what an agent asserts with S absent; this survives a perfect defence, a perfect detector, and an agent that emits nothing but the chosen option. It is also outside Theorem T2, whose slack bound assumes S is independent of the output Y -- here Y is chosen *because* of S.
+
+Computed exactly from the generator, not probed: each category bars two of four options and a permitted constraint removes a third, so the posterior over categories given the answer has a closed form. It is computed per scenario and then averaged. Pooling scenarios, or pooling domains, would credit the adversary's uncertainty with things they can read straight off the case file -- which domain it is, and which option the service-level constraint removed.
+
+Two adversaries, because the gap between them is the finding:
+
+- **uninformed** -- knows the case file and the domain's list of restricted categories, nothing more.
+- **generator-aware** -- also knows that a scenario's restricted category always leaves exactly one viable option, because the construction is published in this paper. Categories that would leave two are then not candidates at all.
+
+| quantity | uninformed | generator-aware |
+|---|---|---|
+| candidate categories | 6 | 3 |
+| H(S) | 2.622 bits | 1.613 bits |
+| H(S \| answer) | 1.542 bits | 0.033 bits |
+| **I(answer; S)** | **1.080 bits** | **1.579 bits** |
+| fraction of S implied by the answer | **41.2%** | **97.9%** |
+| adversary names the category | 0.488 | 0.983 |
+| chance | 0.163 | 0.328 |
+| from answers the models actually gave (n=60) | 0.967 | 0.967 |
+
+Note the empirical row sits near the generator-aware column under *both* priors. The uninformed adversary's MAP figure of 0.488 is an average over answers that an ambiguous category could have produced -- but the builder never picks an ambiguous category, so no such answer is ever actually seen. On the answers the models really gave, even the uninformed adversary recovers S at 0.967. The uninformed column is a floor on a case that does not arise; the generator-aware column is what the testbed does.
+
+| domain | I, uninformed | I, generator-aware | recovery, generator-aware |
+|---|---|---|---|
+| clinic_scheduling | 1.085 | 1.585 | 1.000 vs 0.333 chance |
+| hr_leave | 1.085 | 1.585 | 1.000 vs 0.333 chance |
+| insurance_claims | 1.085 | 1.585 | 1.000 vs 0.333 chance |
+| legal_intake | 1.055 | 1.551 | 0.900 vs 0.300 chance |
+| loan_prescreen | 1.085 | 1.585 | 1.000 vs 0.333 chance |
+| travel_accessibility | 1.085 | 1.585 | 1.000 vs 0.333 chance |
+
+**To the generator-aware adversary the correct answer is very nearly the whole secret**: 97.9% of H(S), and the right category named 98% of the time against a 33% chance baseline. On this testbed, getting a decision task right *is* disclosing S to anyone who has read how the scenarios were built.
+
+So report this beside delta. A delta near 1.0 on decision tasks means the agent kept the use and dropped the disclosure, and that is still the finding -- but 'dropped the disclosure' cannot mean leakage went to zero, and a reader entitled to think it did would be misled. The relay-level measurements elsewhere in this report are leakage *through the relay text*; this is leakage through the task output, which no relay defence can touch.
+
+It is a property of the construction, not of the models: the scenarios were built so that S determines the answer, and that is what makes delta measurable at all. A testbed where S only *shifts* the answer distribution would have a lower floor and a weaker delta; the trade is stated here rather than hidden.
 
 ### Power, stated honestly
 

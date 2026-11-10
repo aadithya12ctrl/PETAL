@@ -11,6 +11,13 @@ Arms (PETAL_execution_plan.md section 4):
     petal_text      same gaps, regenerated from the permitted context alone
     decision_only   planner relays its annex-derived conclusion, not the annex
 
+`tau_gap` is a threshold on the gap scorer's output. The lexical scorer returns
+0 or 1, so any tau in (0, 1] behaves identically; once the entailment scorer is
+supplied (`nli_cache`), tau is a real probability cut and the configured 0.15 is
+deliberately far below the detector's own leak threshold of 0.75 -- the petal
+should mask a span it only suspects, because masking a clean span costs a little
+utility while missing a leaky one costs the whole defence.
+
 Why full, b6_placebo and petal_text share a planner call
 --------------------------------------------------------
 All three send the planner an identical prompt at an identical seed, so the
@@ -73,6 +80,8 @@ class RunRecord:
     output: str = ""        # reporter final output
     # --- defence bookkeeping -----------------------------------------
     gap_scan: dict[str, Any] = field(default_factory=dict)
+    gap_scorer: str = ""        # "lexical" or "lexical+nli" -- see run_arm
+    gap_scores_missing: int = 0
     n_gaps: int = 0
     markers_left: int = 0
     petal_residual_forms: list[str] = field(default_factory=list)
@@ -104,8 +113,27 @@ class RunRecord:
 
 
 # ----------------------------------------------------------------- the runner
+def make_gap_scorer(sc: Scenario, nli_cache=None):
+    """The scorer the petal uses to find its gaps.
+
+    With `nli_cache` (a `detector.CachedNliScorer`) this is max(lexical,
+    entailment) -- the same signal the leak detector uses to grade the result.
+    Without it, lexical only, which is a strictly weaker detector than the one
+    that scores the arm: it will miss paraphrases, those paraphrases will
+    survive into the relay, and the petal will be charged for them. A run made
+    this way is reported as the **lexical-gap petal** and read as a lower bound
+    on what the mechanism can do, never as the mechanism's performance.
+    """
+    lex = G.LexicalScorer(sc.S.paraphrases)
+    if nli_cache is None:
+        return lex
+    hyp = sc.S.proposition_generic or sc.S.proposition
+    return G.MaxSpanScorer(lex, G.CachedNliSpanScorer(nli_cache, hyp))
+
+
 def run_arm(client: LLMClient, sc: Scenario, arm: str, *, model_role: str = "agent_a",
-            seed: int | None = None, tau: float | None = None) -> RunRecord:
+            seed: int | None = None, tau: float | None = None,
+            nli_cache=None) -> RunRecord:
     if arm not in ARMS:
         raise ValueError("unknown arm %r" % arm)
     cfg: Config = client.cfg
@@ -127,9 +155,11 @@ def run_arm(client: LLMClient, sc: Scenario, arm: str, *, model_role: str = "age
 
     # ---- defences applied to the draft ---------------------------------
     if arm in ("petal_text", "b6_placebo"):
-        scorer = G.LexicalScorer(sc.S.paraphrases)
+        scorer = make_gap_scorer(sc, nli_cache)
         gs = G.scan(rec.m1_draft, scorer, tau)
         rec.gap_scan = gs.to_dict()
+        rec.gap_scorer = gs.scorer
+        rec.gap_scores_missing = gs.n_missing_scores
         rec.n_gaps = gs.n_gaps
         if gs.n_gaps:
             if arm == "petal_text":
@@ -141,7 +171,8 @@ def run_arm(client: LLMClient, sc: Scenario, arm: str, *, model_role: str = "age
                 filled, left = G.strip_unfilled_markers(rf.text or masked)
                 rec.markers_left = left
                 rec.m1 = filled
-                rec.petal_residual_forms = scorer.hits(filled)
+                rec.petal_residual_forms = (scorer.hits(filled)
+                                            if hasattr(scorer, "hits") else [])
             else:
                 rec.m1 = G.placebo_fill(rec.m1_draft, gs.gaps, STANDING_NOTICES,
                                         seed_key="%s|%s|%d" % (sc.id, model_role, seed))

@@ -40,6 +40,24 @@ decision-type and 0.43 for content-type. A measured delta is read against its ow
 ceiling, so the claim under test becomes "delta sits near ceiling for
 decision-type uses and far below it for content-type uses" -- a statement about
 agents, not about our rubric design.
+
+`delta_ceiling` here is the *design-intent* ceiling and is NOT the number to
+divide a measured delta by
+--------------------------------------------------------------------------
+It is normalised by `floor_utility` and by a perfect score of 1.0: both are
+properties of the construction. The measured delta is normalised by what the
+Drop and Full arms actually scored, which are properties of the run. The two
+scales coincide only if U_drop == floor_utility and U_full == 1.0, and in
+practice neither does -- a model guesses an abstraction right, or fumbles a
+scenario the annex fully determines. Dividing a measured delta by this number
+mixes the scales and silently misstates how much of the available room an arm
+reached.
+
+`petal.analysis.ceiling` recomputes the ceiling on delta's own scale, from the
+same scenario-paired bootstrap, using `max_utility_without_asserting_S` below.
+That is the quantity the paper reports against. This one stays because the
+builder needs it: a scenario whose design-intent ceiling is <= 0 is a scenario
+whose rubric cannot answer the question, and `validate` rejects it at build time.
 """
 from __future__ import annotations
 
@@ -196,7 +214,11 @@ class Scenario:
 
     @property
     def delta_ceiling(self) -> float:
-        """Largest delta a non-asserting defence could achieve. See module docstring."""
+        """Design-intent ceiling, against the *chance* floor and a perfect 1.0.
+
+        A build-time check, not the divisor for a measured delta: see the
+        module docstring, and use `petal.analysis.ceiling` for the latter.
+        """
         u_max = self.max_utility_without_asserting_S
         u_fl = self.floor_utility
         if 1.0 - u_fl <= 0:

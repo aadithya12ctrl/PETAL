@@ -92,12 +92,73 @@ class LexicalScorer:
         return [] if not self._re else sorted({m.group(0) for m in self._re.finditer(text or "")})
 
 
+class CachedNliSpanScorer:
+    """Entailment-backed gap scoring, from a precomputed score cache.
+
+    Why this exists
+    ---------------
+    The petal found its gaps with `LexicalScorer` while leaks were *scored* by
+    the entailment cascade. Those are not the same detector, and the asymmetry
+    runs the wrong way: a paraphrase the lexical gate has no form for passes
+    through the petal unmasked, and is then counted as a petal failure. The
+    petal would be charged for leaks it was never shown.
+
+    Scoring with the same signal that grades it removes that. It cannot run
+    in-process here (the entailment model does not fit in this machine's
+    memory), so it reads scores produced out of band by `scripts/nli_score.py`,
+    keyed exactly as `detector.pair_key` keys them.
+
+    A span with no cached score is **not** silently treated as clean: it is
+    counted in `missing`, and the runner refuses to report a petal arm built on
+    a scan with misses. A silent miss is the same failure as the lexical gate,
+    only harder to see.
+    """
+    name = "nli"
+
+    def __init__(self, cached, hypothesis: str):
+        self.cached = cached
+        self.hypothesis = hypothesis
+        self.missing: list[str] = []
+
+    def __call__(self, span_text: str) -> float:
+        p = self.cached.score(span_text, self.hypothesis)
+        if p is None or p < 0.0:
+            self.missing.append(span_text)
+            return 0.0
+        return float(p)
+
+
+class MaxSpanScorer:
+    """max over several scorers. Lexical OR entailment, whichever fires."""
+
+    def __init__(self, *scorers, name: str = "lexical+nli"):
+        self.scorers = [s for s in scorers if s is not None]
+        self.name = name
+
+    def __call__(self, span_text: str) -> float:
+        return max([float(s(span_text)) for s in self.scorers] or [0.0])
+
+    @property
+    def missing(self) -> list[str]:
+        out: list[str] = []
+        for s in self.scorers:
+            out.extend(getattr(s, "missing", []))
+        return out
+
+    def hits(self, text: str) -> list[str]:
+        for s in self.scorers:
+            if hasattr(s, "hits"):
+                return s.hits(text)
+        return []
+
+
 @dataclass
 class GapScan:
     spans: list[Span]
     gaps: list[Span]
     scorer: str
     tau: float
+    n_missing_scores: int = 0
 
     @property
     def n_gaps(self) -> int:
@@ -110,16 +171,20 @@ class GapScan:
     def to_dict(self) -> dict:
         return {"scorer": self.scorer, "tau": self.tau, "n_spans": len(self.spans),
                 "n_gaps": self.n_gaps, "gap_chars": self.gap_chars,
+                "n_missing_scores": self.n_missing_scores,
                 "gaps": [{"start": g.start, "end": g.end, "score": round(g.score, 4),
                           "text": g.text} for g in self.gaps]}
 
 
 def scan(text: str, scorer: SpanScorer, tau: float) -> GapScan:
+    before = len(getattr(scorer, "missing", []))
     spans = split_spans(text)
     for s in spans:
         s.score = float(scorer(s.text))
     gaps = [s for s in spans if s.score >= tau]
-    return GapScan(spans=spans, gaps=gaps, scorer=getattr(scorer, "name", "?"), tau=tau)
+    missed = len(getattr(scorer, "missing", [])) - before
+    return GapScan(spans=spans, gaps=gaps, scorer=getattr(scorer, "name", "?"),
+                   tau=tau, n_missing_scores=max(0, missed))
 
 
 # --------------------------------------------------------------------- masking

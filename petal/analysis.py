@@ -44,13 +44,31 @@ class Panel:
     #: assertion of S', scored only on the Swap arm, as a positive control
     leak_control: dict[str, dict[str, list[bool]]] = field(default_factory=dict)
     relay_tokens: dict[str, list[float]] = field(default_factory=dict)
+    #: per scenario, the utility a perfect non-asserting answer would earn
+    #: (decision: 1.0; content: the permitted + abstract tiers). Aligned to
+    #: `scenarios`. This is the numerator of the ceiling, and it is a property
+    #: of the rubric, not of any run.
+    u_max_no_s: list[float] = field(default_factory=list)
 
     def arms(self) -> list[str]:
         return sorted(self.utility)
 
 
+def scenario_index(path: str | Path | None = None) -> dict[str, Any]:
+    """{scenario id: Scenario}, or {} if the testbed is not on disk."""
+    from .scenarios.schema import Scenario
+    from . import paths as _paths
+    p = Path(path) if path else (_paths.SCENARIOS / "scenarios.json")
+    try:
+        return {s.id: s for s in (Scenario.from_dict(d)
+                                  for d in json.loads(p.read_text(encoding="utf-8")))}
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+
+
 def load(runs_paths: Sequence[str | Path],
-         detections_paths: Sequence[str | Path] | None = None
+         detections_paths: Sequence[str | Path] | None = None,
+         scenarios: dict[str, Any] | None = None
          ) -> tuple[dict[str, Panel], dict[str, Any]]:
     """Build one Panel per use type from run and detection files.
 
@@ -93,11 +111,15 @@ def load(runs_paths: Sequence[str | Path],
         l_acc[(d["use_type"], d["scenario_id"], d["arm"], d["channel"],
                tgt)].append(bool(d["leak"]))
 
+    scens = scenario_index() if scenarios is None else scenarios
+
     panels: dict[str, Panel] = {}
     for ut in sorted({r["use_type"] for r in runs}):
         sids = sorted({s for s, u in use_of.items() if u == ut})
         arms = sorted({r["arm"] for r in runs if r["use_type"] == ut})
         p = Panel(use_type=ut, scenarios=sids)
+        p.u_max_no_s = [float(getattr(scens[s], "max_utility_without_asserting_S", 1.0))
+                        if s in scens else float("nan") for s in sids]
         for arm in arms:
             p.utility[arm] = [_mean(u_acc.get((ut, s, arm), [])) for s in sids]
             p.relay_tokens[arm] = [_mean(t_acc.get((ut, s, arm), [])) for s in sids]
@@ -133,6 +155,71 @@ def delta_table(p: Panel, arms: Sequence[str], *, n_boot: int = 10000,
     for arm in arms:
         if arm in p.utility:
             out[arm] = bootstrap_delta(p.utility[arm], p.utility["full"],
+                                       p.utility["drop"], n_boot=n_boot, seed=seed)
+    return out
+
+
+def has_ceiling(p: Panel) -> bool:
+    v = p.u_max_no_s
+    return bool(v) and len(v) == len(p.scenarios) and all(x == x for x in v)
+
+
+def ceiling(p: Panel, *, n_boot: int = 10000, seed: int = 0) -> Interval | None:
+    """The delta a perfect non-asserting defence would score, in delta's units.
+
+    This is the fix for a normalisation mismatch that would have made every
+    "fraction of ceiling" number wrong. The scenario schema publishes a
+    *design-intent* ceiling,
+
+        (U_max_noS - U_chance) / (1 - U_chance),
+
+    which is a statement about the rubric: U_chance is the floor the construction
+    aims at, and 1.0 is a perfect score. But the measured delta is
+
+        (U_arm - U_drop) / (U_full - U_drop),
+
+    normalised by what the Drop and Full arms *actually* scored. The two agree
+    only if U_drop == U_chance and U_full == 1.0, and neither holds: on the mock
+    testbed the content arms gave U_drop = 0.30 against a 0.30 chance floor but
+    U_full = 1.0, and the decision arms gave U_drop = 0.267 against a 0.333
+    floor. Dividing a delta by a ceiling computed on a different scale is a
+    category error, and it is why a content delta of 0.429 looked like it was
+    sitting "exactly on" a 0.40 ceiling.
+
+    So the ceiling is recomputed here on delta's own scale, by feeding the
+    per-scenario `max_utility_without_asserting_S` through the identical
+    estimator. It is a ratio of means over the same scenario-paired bootstrap,
+    so it carries a CI and composes with delta exactly.
+    """
+    if not has_ceiling(p) or "full" not in p.utility or "drop" not in p.utility:
+        return None
+    return bootstrap_delta(p.u_max_no_s, p.utility["full"], p.utility["drop"],
+                           n_boot=n_boot, seed=seed)
+
+
+def delta_normalised_table(p: Panel, arms: Sequence[str], *, n_boot: int = 10000,
+                           seed: int = 0) -> dict[str, Interval]:
+    """delta / ceiling, resampled as one quantity rather than divided afterwards.
+
+        delta / ceiling = (U_arm - U_drop) / (U_maxNoS - U_drop)
+
+    because the (U_full - U_drop) in both denominators cancels. Estimating it
+    directly, rather than dividing two point estimates, is what gives it an
+    honest CI: the numerator and denominator share scenarios and are strongly
+    correlated, so a ratio of two independently-bootstrapped intervals would be
+    far too wide.
+
+    1.0 means the arm reached everything a non-asserting defence could reach
+    here. This is the headline number for Conjecture C1, because it is the only
+    one comparable across use types -- a raw delta of 0.43 on content and 1.0 on
+    decision describe the same achievement relative to what was available.
+    """
+    if not has_ceiling(p) or "drop" not in p.utility:
+        return {}
+    out: dict[str, Interval] = {}
+    for arm in arms:
+        if arm in p.utility:
+            out[arm] = bootstrap_delta(p.utility[arm], p.u_max_no_s,
                                        p.utility["drop"], n_boot=n_boot, seed=seed)
     return out
 

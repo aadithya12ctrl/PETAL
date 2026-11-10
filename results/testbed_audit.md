@@ -1,6 +1,6 @@
 # Testbed audit
 
-Run file: `runs\exp1_mock_agent_a_seed20261109.jsonl`
+Run file: `runs/exp1_mock_agent_a_seed20261109.jsonl`
 Scenarios with runs: 60
 
 This replaces the plan's human hand-check. It cannot judge whether a case file reads plausibly; it does settle every other hand-check question by measurement. See the module docstring.

@@ -1,6 +1,6 @@
 # Experiment 2: ladder decay against Theorem T3
 
-Run file: `runs\exp2_mock_agent_a_seed20261109.jsonl`
+Run file: `runs/exp2_mock_agent_a_seed20261109.jsonl`
 Kind: `medical`; probe over k = 23 candidate propositions; I(S;M_0) assumed at its maximum log2(k) = 4.52 bits.
 
 ## The ladder actually used
@@ -39,6 +39,33 @@ Product over the randomised rungs: **0.0497**. PETAL_v2 §4.3 quotes 0.039 for a
 | random_dropout | 4 | 20 | 0.850 | 0.123 | 0.000 | 4.524 |  |
 
 Chance error for this probe is 0.957, i.e. 0.000 bits.
+
+## Outside the slot: what the agents carry on their own
+
+Everything above is a probe of a channel *this code writes*. `petal.chain.rewrite_slot` applies the randomised response itself, so the symbol in the slot was drawn from the rung's alphabet by `petal.ladder.emit`: it satisfies T3 by construction, and H4 cannot fail there however the agents behave. A decay curve that tracks the bound is a test of this repository, not a result about relays.
+
+The question that is about the agents is whether they carry S *around* the slot -- restating the condition in their own prose, or re-deriving it from the coarsened symbol and spelling it out again downstream. So the probe is re-run on each note with the ladder's line cut out. PETAL_v2 §4.3 puts exactly this outside T3's scope, and information found here above the ladder's bound is the side channel H4 was written to catch.
+
+| schedule | hop | n | probe error | LB (cons.) | T3 UB | H4 (side) |
+|---|---|---|---|---|---|---|
+| none | 1 | 20 | 0.900 | 0.000 | 4.524 |  |
+| none | 2 | 20 | 0.900 | 0.000 | 4.524 |  |
+| none | 3 | 20 | 0.900 | 0.000 | 4.524 |  |
+| none | 4 | 20 | 0.900 | 0.000 | 4.524 |  |
+| deterministic | 1 | 20 | 0.900 | 0.000 | 4.524 |  |
+| deterministic | 2 | 20 | 0.900 | 0.000 | 4.524 |  |
+| deterministic | 3 | 20 | 0.900 | 0.000 | 4.524 |  |
+| deterministic | 4 | 20 | 1.000 | 0.000 | 4.524 |  |
+| stochastic | 1 | 20 | 0.900 | 0.000 | 3.578 |  |
+| stochastic | 2 | 20 | 0.900 | 0.000 | 2.407 |  |
+| stochastic | 3 | 20 | 0.900 | 0.000 | 1.123 |  |
+| stochastic | 4 | 20 | 1.000 | 0.000 | 0.225 |  |
+| random_dropout | 1 | 20 | 0.900 | 0.000 | 4.524 |  |
+| random_dropout | 2 | 20 | 0.950 | 0.000 | 4.524 |  |
+| random_dropout | 3 | 20 | 0.950 | 0.000 | 4.524 |  |
+| random_dropout | 4 | 20 | 0.950 | 0.000 | 4.524 |  |
+
+The `none` schedule is the reference: it writes no slot, so its no-slot column is the whole note and its numbers should match the table above. Where a defended schedule's no-slot row is near the `none` row, the ladder is coarsening a symbol while the prose around it carries S regardless.
 
 ## Task utility by schedule
 

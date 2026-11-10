@@ -35,10 +35,14 @@ class ChainHop:
     hop: int
     raw: str                 # what the agent wrote
     sent: str                # what the next agent sees, after the ladder
-    emission: dict[str, Any]
-    n_slots_found: int
-    cost_usd: float
-    cached: bool
+    #: `sent` with the ladder's own slot line excised. This is the channel T3
+    #: does NOT cover, and probing it is the only part of Experiment 2 that
+    #: measures the agents rather than our own code -- see `strip_slot`.
+    sent_no_slot: str = ""
+    emission: dict[str, Any] = field(default_factory=dict)
+    n_slots_found: int = 0
+    cost_usd: float = 0.0
+    cached: bool = False
 
 
 @dataclass
@@ -59,6 +63,32 @@ class ChainRun:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def strip_slot(sent: str, value: str) -> str:
+    """`sent` minus the line the ladder wrote. The side-channel probe's input.
+
+    Why Experiment 2 needs this
+    ---------------------------
+    `rewrite_slot` applies the randomised response *in code*. So the slot
+    satisfies T3's bound by construction: the symbol in it was drawn from the
+    rung's alphabet by our own `emit`, and a probe reading the slot is reading
+    a k-ary channel we implemented. H4 cannot fail there, and a decay curve
+    that tracks the bound is a test of this module, not of any agent.
+
+    The informative question is whether the *agents* carry S around the slot --
+    re-stating the condition in their own prose, or inferring it from the
+    coarsened symbol and spelling it out again downstream. That is exactly the
+    scope limit PETAL_v2 §4.3 puts on T3, and exactly what H4 was written to
+    catch. So the probe runs twice: on the full message, and on the message
+    with the slot cut out. Information found in the second, above what the
+    ladder's bound allows, is re-injection outside the defender's channel.
+    """
+    note = P.carried_note(value)
+    if not note:
+        return (sent or "").strip()
+    out = (sent or "").replace(note, " ")
+    return "\n".join(ln.rstrip() for ln in out.splitlines() if ln.strip()).strip()
 
 
 def rewrite_slot(text: str, forms: list[str], value: str) -> tuple[str, int]:
@@ -122,7 +152,8 @@ def run_chain(client: LLMClient, sc: Scenario, schedule: str, ladder: Ladder, *,
         if h == hops:
             run.output = r.text
             run.hops.append(ChainHop(hop=h, raw=r.text, sent=r.text,
-                                     emission={}, n_slots_found=0,
+                                     sent_no_slot=r.text, emission={},
+                                     n_slots_found=0,
                                      cost_usd=r.cost_usd, cached=r.cached))
             break
 
@@ -131,6 +162,7 @@ def run_chain(client: LLMClient, sc: Scenario, schedule: str, ladder: Ladder, *,
         prev_value = em.value
         sent, n = rewrite_slot(r.text, forms, em.value)
         run.hops.append(ChainHop(hop=h, raw=r.text, sent=sent,
+                                 sent_no_slot=strip_slot(sent, em.value),
                                  emission=em.to_dict(), n_slots_found=n,
                                  cost_usd=r.cost_usd, cached=r.cached))
         incoming = sent
