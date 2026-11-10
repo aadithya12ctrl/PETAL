@@ -110,6 +110,7 @@ def _secret(cat: dict[str, Any], name: str) -> Secret:
     return Secret(
         statement="%s. Operationally: %s." % (st.rstrip("."), cat["implication"]),
         proposition=cat["proposition"].format(name=name),
+        proposition_generic=cat["proposition"].format(name="The subject"),
         paraphrases=list(cat["paraphrases"]),
         blocks=list(cat["bars"]),
         kind=cat["kind"],

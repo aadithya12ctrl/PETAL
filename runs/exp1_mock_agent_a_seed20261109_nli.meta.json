@@ -1,0 +1,11 @@
+{
+  "model": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli",
+  "entailment_index": 0,
+  "device": "cuda",
+  "fp16": true,
+  "max_length": 256,
+  "n_pairs": 2291,
+  "pairs_file": "exp1_mock_agent_a_seed20261109_pairs.jsonl",
+  "transformers": "5.22.1",
+  "torch": "2.14.1+cu130"
+}

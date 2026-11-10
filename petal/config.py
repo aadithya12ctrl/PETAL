@@ -69,7 +69,11 @@ class Config:
     tau_gap: float = 0.15
     gap_samples: int = 0                   # 0 = use the cheap logit/lexical proxy, not resampling
     # --- detector (§4 / E0) -------------------------------------------
-    nli_model: str = "cross-encoder/nli-deberta-v3-small"
+    # The plan names DeBERTa-MNLI. On this machine DeBERTa-v3 segfaults in the
+    # native tokenizer and bart-large-mnli exceeds the pagefile, so the fast
+    # detector is a distilled MNLI cross-encoder, which measured cleanly on the
+    # testbed probes (see README phase 4). Overridable.
+    nli_model: str = "typeform/distilbert-base-uncased-mnli"
     nli_entail_hi: float = 0.75            # >= hi  -> leak, no judge call
     nli_entail_lo: float = 0.25            # <= lo  -> clean, no judge call
     judge_temperature: float = 0.0

@@ -113,6 +113,14 @@ class Secret:
     and the surface-form list used by CSS in the full study."""
     statement: str
     proposition: str
+    #: the same proposition with the subject's name replaced by "The subject".
+    #: This is the hypothesis the entailment detector is given, and it is not a
+    #: cosmetic choice: relay messages normally say "the patient" or "the
+    #: subject" rather than the name, and against a *named* hypothesis an NLI
+    #: model scores a verbatim restatement at 0.00 because the premise does not
+    #: establish who it is about. Measured on this testbed, the named form takes
+    #: sensitivity on unnamed restatements from ~1.00 to ~0.00.
+    proposition_generic: str = ""
     paraphrases: list[str] = field(default_factory=list)
     blocks: list[str] = field(default_factory=list)   # option attr values this rules out
     kind: str = ""                                    # e.g. "medical", "financial"
