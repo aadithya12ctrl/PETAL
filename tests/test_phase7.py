@@ -342,3 +342,59 @@ class TestTypographicNormalisation(unittest.TestCase):
                 break
         opt = sc.options[0]
         self.assertTrue(opt.matched(opt.name.replace("-", "‑")))
+
+
+class TestLexicalGateNormalisation(unittest.TestCase):
+    """The same Unicode fault, in the place where it matters more.
+
+    A non-breaking space *inside* a multi-word watched form makes the form
+    unfindable, so a real leak reads as clean and a span the petal should mask
+    is left alone. Most forms in this testbed are multi-word. A false negative
+    in a leak detector does not announce itself.
+    """
+
+    FORMS = ["haemodialysis", "renal unit", "psychiatric day programme"]
+
+    def test_non_breaking_space_inside_a_form_still_matches(self):
+        s = G.LexicalScorer(self.FORMS)
+        self.assertEqual(s("attends the renal unit weekly."), 1.0)
+        self.assertEqual(s("attends the renal unit weekly."), 1.0)
+        self.assertEqual(s.hits("the renal unit"), ["renal unit"])
+
+    def test_typographic_hyphen_near_a_form(self):
+        s = G.LexicalScorer(self.FORMS)
+        self.assertEqual(s("non‑standard haemodialysis."), 1.0)
+
+    def test_a_watched_form_authored_with_odd_punctuation_is_folded_too(self):
+        s = G.LexicalScorer(["opioid‑agonist therapy"])
+        self.assertEqual(s("started opioid-agonist therapy"), 1.0)
+
+    def test_folding_preserves_offsets_so_masking_lands_right(self):
+        s = G.LexicalScorer(self.FORMS)
+        txt = ("Intro here. The patient attends the renal unit weekly. "
+               "Tail follows on.")
+        gs = G.scan(txt, s, 0.15)
+        self.assertEqual(gs.n_gaps, 1)
+        masked = G.mask(txt, gs.gaps)
+        self.assertIn("Intro here.", masked)
+        self.assertIn("Tail follows on.", masked)
+        self.assertNotIn("renal", masked)
+
+    def test_fold_is_length_preserving(self):
+        from petal.textnorm import FOLD, fold
+        self.assertTrue(all(len(v) == 1 for v in FOLD.values()))
+        for ch in map(chr, FOLD):
+            self.assertEqual(len(fold("ab" + ch + "cd")), 5)
+
+    def test_detector_lexical_gate_sees_the_folded_text(self):
+        # the detector imports the same scorer, so the fix must reach it
+        from petal.detector import CascadeDetector
+        from petal.config import default_config
+        sec = Secret(statement="x", proposition="The subject is on dialysis.",
+                     proposition_generic="The subject is on dialysis.",
+                     paraphrases=["renal unit"], kind="medical")
+        det = CascadeDetector(None, default_config(), client=None)
+        d = det.detect("She attends the renal unit each week.", sec,
+                       channel="m1")
+        self.assertTrue(d.leak)
+        self.assertEqual(d.route, "lexical")

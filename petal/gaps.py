@@ -25,6 +25,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Callable, Protocol
 
+from .textnorm import fold
+
 MARKER = "[[FILL %d]]"
 MARKER_RE = re.compile(r"\[\[\s*FILL\s*(\d+)\s*\]\]")
 
@@ -78,7 +80,12 @@ class LexicalScorer:
     name = "lexical"
 
     def __init__(self, surface_forms: list[str]):
-        forms = sorted({f for f in surface_forms if f.strip()}, key=len, reverse=True)
+        # Both the forms and the text are ASCII-folded, so a watched form
+        # written with a non-breaking space or a typographic hyphen still
+        # matches. `fold` is length-preserving, which matters here: `scan`
+        # masks gaps by character offset into the *unfolded* draft.
+        forms = sorted({fold(f) for f in surface_forms if f.strip()},
+                       key=len, reverse=True)
         self.forms = forms
         self._re = (re.compile(r"\b(?:" + "|".join(re.escape(f) for f in forms) + r")\b",
                                re.I) if forms else None)
@@ -86,10 +93,12 @@ class LexicalScorer:
     def __call__(self, span_text: str) -> float:
         if not self._re:
             return 0.0
-        return 1.0 if self._re.search(span_text or "") else 0.0
+        return 1.0 if self._re.search(fold(span_text or "")) else 0.0
 
     def hits(self, text: str) -> list[str]:
-        return [] if not self._re else sorted({m.group(0) for m in self._re.finditer(text or "")})
+        if not self._re:
+            return []
+        return sorted({m.group(0) for m in self._re.finditer(fold(text or ""))})
 
 
 class CachedNliSpanScorer:
