@@ -76,10 +76,15 @@ class OpenRouterBackend(Backend):
     name = "openrouter"
 
     def __init__(self, key: str, timeout: float = 120.0, max_retries: int = 4,
-                 app_title: str = "PETAL-research"):
+                 app_title: str = "PETAL-research",
+                 max_rate_limit_retries: int = 8):
         self.key = key
         self.timeout = timeout
         self.max_retries = max_retries
+        #: 429s are counted separately and waited out far more patiently than
+        #: other transient errors: they come from the pinned provider's shared
+        #: pool, and clear in minutes rather than seconds.
+        self.max_rate_limit_retries = max_rate_limit_retries
         self.app_title = app_title
         self._session = requests.Session()
 
@@ -93,7 +98,12 @@ class OpenRouterBackend(Backend):
 
     def complete(self, spec: ModelSpec, payload: dict[str, Any]) -> dict[str, Any]:
         last_err: Exception | None = None
-        for attempt in range(self.max_retries):
+        rate_tries = 0
+        attempt = -1
+        while True:
+            attempt += 1
+            if attempt >= self.max_retries + rate_tries:
+                break
             try:
                 r = self._session.post(OPENROUTER_URL, headers=self._headers(),
                                        data=json.dumps(payload), timeout=self.timeout)
@@ -108,11 +118,34 @@ class OpenRouterBackend(Backend):
                 return obj
             if r.status_code in (408, 429, 500, 502, 503, 504):
                 last_err = RuntimeError("HTTP %d: %s" % (r.status_code, r.text[:400]))
+                # A 429 here is not our quota. It is the provider's shared pool
+                # being exhausted upstream, which lasts minutes, not the ~15s
+                # an exponential backoff from 1s gives up after -- the first
+                # full pilot died at scenario 51 of 60 that way. Pinning one
+                # provider for reproducibility is what exposes us to it, and
+                # the alternative (fall back to another host) would silently
+                # mix quantisations mid-run. So wait properly instead.
+                if r.status_code == 429:
+                    rate_tries += 1
+                    if rate_tries > self.max_rate_limit_retries:
+                        break
+                    hdr = r.headers.get("Retry-After")
+                    try:
+                        wait = float(hdr) if hdr else 0.0
+                    except ValueError:
+                        wait = 0.0
+                    wait = wait or min(20.0 * rate_tries, 180.0)
+                    wait += random.uniform(0, 0.3 * wait)   # de-synchronise
+                    print("[client] rate-limited upstream; waiting %.0fs "
+                          "(attempt %d/%d)"
+                          % (wait, rate_tries, self.max_rate_limit_retries))
+                    time.sleep(wait)
+                    continue
                 time.sleep(min(2 ** attempt, 20))
                 continue
             raise RuntimeError("OpenRouter HTTP %d: %s" % (r.status_code, r.text[:800]))
-        raise RuntimeError("OpenRouter failed after %d attempts: %s"
-                           % (self.max_retries, last_err))
+        raise RuntimeError("OpenRouter failed after %d attempts (%d rate-limited): %s"
+                           % (attempt + 1, rate_tries, last_err))
 
 
 # ----------------------------------------------------------------------- mock

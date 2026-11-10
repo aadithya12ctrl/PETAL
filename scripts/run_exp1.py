@@ -141,21 +141,37 @@ def main() -> int:
     client = make_client(cfg, scens, args.paid)
     print("spend before: $%.4f of $%.2f" % (client.meter.total, client.meter.limit))
 
-    records: list[RunRecord] = []
-    t0 = time.time()
-    for role in models:
-        for i, sc in enumerate(scens, 1):
-            for arm in arms:
-                records.append(run_arm(client, sc, arm, model_role=role, seed=seed,
-                                       nli_cache=nli_cache))
-            if i % 10 == 0 or i == len(scens):
-                print("  %s %3d/%d  spend $%.4f  cache %s"
-                      % (role, i, len(scens), client.meter.total, client.cache.stats()))
-
     out = Path(args.out) if args.out else (
         paths.RUNS / ("exp1_%s_%s_seed%d.jsonl"
                       % ("paid" if args.paid else "mock", "-".join(models), seed)))
     out.parent.mkdir(parents=True, exist_ok=True)
+
+    records: list[RunRecord] = []
+    t0 = time.time()
+    try:
+        for role in models:
+            for i, sc in enumerate(scens, 1):
+                for arm in arms:
+                    records.append(run_arm(client, sc, arm, model_role=role,
+                                           seed=seed, nli_cache=nli_cache))
+                if i % 10 == 0 or i == len(scens):
+                    print("  %s %3d/%d  spend $%.4f  cache %s"
+                          % (role, i, len(scens), client.meter.total,
+                             client.cache.stats()))
+    except (KeyboardInterrupt, RuntimeError) as e:
+        # A long run must not lose its work to a transient provider error.
+        # The first full pilot died on an upstream 429 at scenario 51 of 60
+        # and wrote nothing. The paid calls themselves survive in the LLM
+        # cache, so resuming is nearly free -- but only if the partial run is
+        # on disk to be inspected, and only if the failure is visible rather
+        # than a missing file.
+        partial = Path(str(out).replace(".jsonl", "") + ".partial.jsonl")
+        write_runs(partial, records)
+        print("\n%d runs completed before the failure -> %s" % (len(records), partial))
+        print("the completed calls are cached, so re-running costs only what is "
+              "missing")
+        raise SystemExit("run aborted: %s" % e)
+
     write_runs(out, records)
 
     # An empty completion is scored as a wrong answer, so a model that returns

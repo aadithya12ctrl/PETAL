@@ -1,0 +1,25 @@
+scenarios 60 x arms 8 x models 1 = 480 runs, seed 20261109, backend openrouter
+projected upper bound for this invocation: $0.219
+gap scan: LEXICAL ONLY. The petal will be scored by a detector stronger than the one it used to find its gaps, so its leak rate is an upper bound and its delta a lower bound. Report this arm as the 'lexical-gap petal'. See scripts/emit_gap_pairs.py for the entailment-backed pass.
+spend before: $0.0639 of $9.00
+  dev  10/60  spend $0.0757  cache {'hits': 40, 'misses': 205}
+  dev  20/60  spend $0.0873  cache {'hits': 76, 'misses': 415}
+  dev  30/60  spend $0.0987  cache {'hits': 116, 'misses': 620}
+  dev  40/60  spend $0.1094  cache {'hits': 160, 'misses': 820}
+  dev  50/60  spend $0.1214  cache {'hits': 208, 'misses': 1015}
+Traceback (most recent call last):
+  File "C:\Users\shesh\Downloads\PETAL\scripts\run_exp1.py", line 222, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Users\shesh\Downloads\PETAL\scripts\run_exp1.py", line 149, in main
+    records.append(run_arm(client, sc, arm, model_role=role, seed=seed,
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shesh\Downloads\PETAL\petal\arms.py", line 187, in run_arm
+    seed=seed, tag=tag + ":fill")
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shesh\Downloads\PETAL\petal\client.py", line 236, in chat
+    raw = self.backend.complete(spec, payload)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shesh\Downloads\PETAL\petal\client.py", line 114, in complete
+    raise RuntimeError("OpenRouter failed after %d attempts: %s"
+RuntimeError: OpenRouter failed after 4 attempts: HTTP 429: {"error":{"message":"Provider returned error","code":429,"metadata":{"raw":"openai/gpt-oss-20b is temporarily rate-limited upstream. Please retry shortly, or add your own provider key to use your own limits: https://openrouter.ai/workspaces/default/byok","provider_name":"DeepInfra","is_byok":false,"provider_error_code":"engine_overloaded","limit_source":"upstream_provider_shared_pool","remedy_hint
