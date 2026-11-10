@@ -95,22 +95,29 @@ def fig_frontier(d: dict) -> None:
     # first two panels while handing over most of S. Plotting assertion
     # leakage alone would make exactly the claim the analysis refutes.
     panels = [(u, "assertion") for u in uts]
-    panels += [(u, "inferential") for u in uts
-               if d["use_types"][u].get("arm_inferential")]
+    # `implied.relay_leakage` is computed over decision scenarios only -- the
+    # adversary's candidate set comes from the option/bar structure, which
+    # content scenarios do not have. A content panel here would plot
+    # decision-derived recoveries against content utilities.
+    panels += [(u, "inferential") for u in uts if u == "decision"
+               and (d.get("relay_gradient") or {}).get("measured_on_relay")]
     fig, axes = plt.subplots(1, len(panels), figsize=(4.6 * len(panels), 4.0),
                              facecolor=SURFACE, squeeze=False)
     for j, (ut, axis) in enumerate(panels):
         ax = axes[0][j]
         p = d["use_types"][ut]
         style(ax, xlabel=("leak rate on the relay (m1)" if axis == "assertion"
-                          else "adversary recovers S from the answer"),
+                          else "adversary recovers S from the relay"),
               ylabel="task utility" if j == 0 else "",
               title="%s-type, %s leak" % (ut.capitalize(), axis))
         # Arms frequently coincide exactly -- every defended arm sits at leak 0
         # with the same utility -- so one label per *point*, listing the arms
         # that share it. Drawn per arm, the labels overprint into mush.
         groups: dict[tuple[float, float], list[str]] = {}
-        inf = p.get("arm_inferential") or {}
+        # Measured on the relay, not the answer. Reading the answer gives every
+        # arm that gets the task right the same score, so the panel could not
+        # separate the arms -- which was the reason for having it.
+        inf = (d.get("relay_gradient") or {}).get("measured_on_relay") or {}
         for arm, u in p["utility"].items():
             if axis == "assertion":
                 lk = p["leak"].get(arm, {}).get("m1")
@@ -119,16 +126,48 @@ def fig_frontier(d: dict) -> None:
             if lk is None or lk != lk:
                 continue
             groups.setdefault((round(lk, 3), round(u, 3)), []).append(arm)
+        # Arms that sit within a hair of each other get one shared label.
+        # Drawn per group the stacks still overprint: on the inferential axis
+        # six arms land inside 0.07 of chance, and six labels at a 10pt offset
+        # from six near-identical points is unreadable.
+        merged: dict[tuple[float, float], list[str]] = {}
         for (lk, u), arms in sorted(groups.items()):
+            for (mk, mu), got in merged.items():
+                if abs(mk - lk) <= 0.08 and abs(mu - u) <= 0.03:
+                    got.extend(arms)
+                    break
+            else:
+                merged[(lk, u)] = list(arms)
+        for (lk, u), arms in sorted(merged.items()):
             ax.plot([lk], [u], marker="o", markersize=8, color=SERIES[0],
                     markeredgecolor=SURFACE, markeredgewidth=1.8, zorder=3)
+            # Label to the left when another group sits close on the right: a
+            # right-offset label would otherwise run straight through its
+            # neighbour's text, which is how Swap and the chance cluster
+            # collided on the inferential panel.
+            crowded = any(0 < ok - lk < 0.33 and abs(ou - u) < 0.06
+                          for (ok, ou) in merged if (ok, ou) != (lk, u))
+            # A multi-line stack is wide as well as tall, so a point further
+            # right but outside the "crowded" radius still gets written
+            # through -- the chance cluster's five labels ran straight over
+            # Full's marker. Drop those below the point instead.
+            blocked = (len(arms) > 1 and not crowded
+                       and any(0 < ok - lk < 1.0 and abs(ou - u) < 0.06
+                               for (ok, ou) in merged if (ok, ou) != (lk, u)))
             ax.annotate("\n".join(ARM_LABEL.get(a, a) for a in sorted(arms)),
-                        (lk, u), textcoords="offset points", xytext=(10, 0),
-                        fontsize=8.5, color=INK_2, va="center", linespacing=1.35)
+                        (lk, u), textcoords="offset points",
+                        xytext=(10, -12) if blocked else (-10 if crowded else 10, 0),
+                        ha="right" if crowded else "left",
+                        va="top" if blocked else "center",
+                        fontsize=8.5, color=INK_2, linespacing=1.35)
         # headroom for a stacked label centred on a point at utility 1.0, and
         # ticks stop at 1.0 because a rate cannot exceed it -- the extra x range
         # is label gutter, not data range
-        ax.set_xlim(-0.08, 1.80)
+        # The inferential panel puts an arm near 0 (Swap, which relays S' and
+        # so misleads the probe below chance). Its label goes to the left to
+        # clear the chance cluster, and needs gutter there or it prints over
+        # the y-axis ticks.
+        ax.set_xlim(-0.45 if axis == "inferential" else -0.08, 1.80)
         ax.set_ylim(-0.05, 1.34)
         ax.set_xticks([0.0, 0.25, 0.5, 0.75, 1.0])
         ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
@@ -139,6 +178,18 @@ def fig_frontier(d: dict) -> None:
         else:
             ch = next((v.get("chance") for v in inf.values() if v), None)
             ref, lab = (ch, "chance") if ch else (None, "")
+            # the answer-implied floor: what the task output discloses whatever
+            # the relay says, so no relay defence can move left of it
+            fl = (((d.get("relay_gradient") or {}).get("generator_aware") or {})
+                  .get("answer") or {}).get("map_recovery")
+            if fl:
+                ax.axvline(fl, color=REFERENCE, linestyle=(0, (1, 2)),
+                           linewidth=1.4)
+                # down the axis, clear of the label band at utility 1.0
+                ax.annotate("answer-implied floor", (fl, 0.13), fontsize=8,
+                            color=INK_MUTED, xytext=(5, 0), rotation=90,
+                            va="center", ha="left",
+                            textcoords="offset points")
         if ref:
             ax.axvline(ref, color=REFERENCE, linestyle=(0, (4, 3)), linewidth=1.2)
             ax.annotate(lab, (ref, 1.28), fontsize=8, color=INK_MUTED,

@@ -630,3 +630,88 @@ class TestConstraintOnlyMockSemantics(unittest.TestCase):
         full, con = self._run("full"), self._run("constraint_only")
         self.assertNotEqual(full.m1, con.m1)
         self.assertTrue(G.LexicalScorer(self.sc.S.paraphrases).hits(full.m1))
+
+
+class TestRelayLeakage(unittest.TestCase):
+    """The inferential axis must read the relay, not the final answer.
+
+    Reading the answer gave every arm that got the task right the same score:
+    `full`, whose relay states the restricted fact verbatim, came out level
+    with `decision_only`, whose relay says only which option to book. That left
+    the axis unable to separate the arms, which was the reason for adding it.
+    """
+
+    def setUp(self):
+        from petal import paths
+        self.scens = [Scenario.from_dict(d) for d in json.loads(
+            (paths.SCENARIOS / "scenarios.json").read_text(encoding="utf-8"))]
+        self.dec = [s for s in self.scens if s.use_type == "decision"][:8]
+
+    def _runs(self, arm, textfn):
+        return [{"scenario_id": s.id, "arm": arm, "use_type": "decision",
+                 "m1": textfn(s)} for s in self.dec]
+
+    def test_a_relay_stating_the_fact_is_recovered(self):
+        out = IM.relay_leakage(self._runs("full", lambda s: s.S.statement),
+                               self.scens)
+        self.assertGreater(out["full"]["recovery"], 0.6)
+        self.assertGreater(out["full"]["mi_lower_bits"], 0.5)
+
+    def test_a_relay_saying_nothing_sits_at_chance(self):
+        out = IM.relay_leakage(
+            self._runs("decision_only", lambda s: "Book option B."), self.scens)
+        self.assertLessEqual(out["decision_only"]["recovery"],
+                             out["decision_only"]["chance"] + 0.2)
+        # the point estimate can read non-zero from TF-IDF luck at this n;
+        # the Clopper-Pearson bound is the one that must not
+        self.assertEqual(out["decision_only"]["mi_lower_bits"], 0.0)
+        self.assertLess(out["decision_only"]["mi_lower_bits_point"], 0.1)
+
+    def test_it_separates_arms_that_the_answer_cannot(self):
+        runs = (self._runs("full", lambda s: s.S.statement)
+                + self._runs("decision_only", lambda s: "Book option B."))
+        out = IM.relay_leakage(runs, self.scens)
+        self.assertGreater(out["full"]["recovery"],
+                           out["decision_only"]["recovery"] + 0.3)
+
+    def test_an_empty_relay_carries_nothing(self):
+        out = IM.relay_leakage(self._runs("drop", lambda s: ""), self.scens)
+        self.assertEqual(out["drop"]["recovery"], 0.0)
+
+    def test_content_scenarios_are_skipped(self):
+        con = [{"scenario_id": s.id, "arm": "full", "use_type": "content",
+                "m1": s.S.statement}
+               for s in self.scens if s.use_type == "content"][:5]
+        self.assertEqual(IM.relay_leakage(con, self.scens), {})
+
+
+class TestGradientObservables(unittest.TestCase):
+    """H7, corrected: the first step of the gradient is the one that moves."""
+
+    def setUp(self):
+        from petal import paths
+        self.scens = [Scenario.from_dict(d) for d in json.loads(
+            (paths.SCENARIOS / "scenarios.json").read_text(encoding="utf-8"))]
+
+    def _g(self, obs):
+        return IM.analyse(self.scens, prior="generator_aware", observable=obs)
+
+    def test_relaying_the_reason_leaves_nothing(self):
+        r = self._g("reason")
+        self.assertAlmostEqual(r.conditional_entropy_bits, 0.0, places=6)
+        self.assertAlmostEqual(r.map_recovery, 1.0, places=6)
+
+    def test_disclosure_drops_from_reason_to_constraint(self):
+        self.assertGreater(self._g("reason").mutual_information_bits,
+                           self._g("constraint").mutual_information_bits)
+
+    def test_and_is_flat_from_constraint_to_conclusion(self):
+        self.assertAlmostEqual(self._g("constraint").mutual_information_bits,
+                               self._g("answer").mutual_information_bits,
+                               places=6)
+
+    def test_the_gap_is_the_sibling_bit(self):
+        # exactly log2(conditions sharing a barred pair) = 1 bit here
+        gap = (self._g("reason").mutual_information_bits
+               - self._g("constraint").mutual_information_bits)
+        self.assertAlmostEqual(gap, 1.0, places=6)

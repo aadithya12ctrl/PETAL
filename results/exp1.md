@@ -223,24 +223,52 @@ To the generator-aware adversary the answer carries **1.585 bits, 61.3% of H(S)*
 
 The relay detector scores **assertion**. A relay that says "Option B" entails nothing about dialysis, so an arm that relays only its conclusion reads as near-zero leakage on every table above while handing over most of S. Reporting assertion leakage alone would make exactly the claim this section exists to refute, so the inferential axis is reported per arm, from the answers each arm actually gave. Bits are Fano on the measured recovery rate -- a lower bound valid for any adversary, and it correctly bounds a guessing arm at 0 rather than crediting it with the sharp-but-wrong posterior a plug-in entropy would.
 
-| arm | utility | assertion leak (m1) | adversary recovers S | inferential leak (bits, LB) |
+| arm | utility | assertion leak (m1) | recovers S from the relay | bits (LB) | recovers S from the answer |
+|---|---|---|---|---|---|
+| full | 1.000 | 1.000 | 0.900 | 1.238 | 0.500 |
+| swap | 1.000 | 0.000 | 0.033 | 0.000 | 0.000 |
+| b1_privacy | 1.000 | 0.000 | 0.200 | 0.000 | 0.500 |
+| b6_placebo | 1.000 | 0.000 | 0.200 | 0.000 | 0.500 |
+| petal_text | 1.000 | 0.000 | 0.167 | 0.000 | 0.500 |
+| constraint_only | 1.000 | 0.000 | 0.167 | 0.000 | 0.500 |
+| decision_only | 1.000 | 0.000 | 0.200 | 0.000 | 0.500 |
+| b4_restriction | 0.300 | 0.000 | 0.200 | 0.000 | 0.150 |
+| drop | 0.267 | 0.000 | 0.233 | 0.000 | 0.133 |
+
+#### The relay-granularity gradient (H7)
+
+Computed exactly from the generator, under the **generator-aware** adversary. That is the true I(relay; S) here: the scenarios are drawn from the generator's own distribution, so mutual information under any other prior describes what a mistaken adversary believes rather than what leaks. The uninformed column is carried alongside, labelled as exactly that.
+
+| relay | carries | I(relay; S) | H(S \| relay) | adversary recovers | naive adversary believes |
+|---|---|---|---|---|---|
+| `full` | the reason | **2.585 bits** | **0.000** | 1.000 | 3.585 bits |
+| `constraint_only` | the constraint | **1.585 bits** | **1.000** | 0.500 | 2.585 bits |
+| `decision_only` | the conclusion | **1.585 bits** | **1.000** | 0.500 | 1.085 bits |
+
+**Disclosure drops from reason to constraint, then stays flat from constraint to conclusion.** Relaying the constraint keeps 1.000 bit hidden -- which of the conditions sharing a barred pair applies -- that relaying the reason gives away entirely. It is no better than relaying the bare conclusion, and no worse, while leaving the choice with the Worker. That is a point *for* constraint relays.
+
+#### How much more do real relays disclose? (H8)
+
+The figures above assume the relay carries *only* what its arm is named for. A real `constraint_only` relay may write "unavailable Tuesday and Thursday mornings due to ongoing treatment" -- a partial reason the assertion detector can score clean while it narrows S further. So the computed value is a **floor**, and the measured one is what an adversary reading the relay text actually recovers.
+
+| arm | computed floor | measured on `m1` | bits (Fano LB, conservative) | chance |
 |---|---|---|---|---|
-| full | 1.000 | 1.000 | 0.500 | 0.424 |
-| swap | 1.000 | 0.000 | 0.000 | 0.000 |
-| b1_privacy | 1.000 | 0.000 | 0.500 | 0.424 |
-| b6_placebo | 1.000 | 0.000 | 0.500 | 0.424 |
-| petal_text | 1.000 | 0.000 | 0.500 | 0.424 |
-| constraint_only | 1.000 | 0.000 | 0.500 | 0.424 |
-| decision_only | 1.000 | 0.000 | 0.500 | 0.424 |
-| b4_restriction | 0.300 | 0.000 | 0.150 | 0.000 |
-| drop | 0.267 | 0.000 | 0.133 | 0.000 |
+| full | 1.000 | **0.900** | 1.238 | 0.167 |
+| constraint_only | 0.500 | **0.167** | 0.000 | 0.167 |
+| decision_only | 0.500 | **0.200** | 0.000 | 0.167 |
+| petal_text | - | **0.167** | 0.000 | 0.167 |
+| b6_placebo | - | **0.200** | 0.000 | 0.167 |
+| b4_restriction | - | **0.200** | 0.000 | 0.167 |
+| b1_privacy | - | **0.200** | 0.000 | 0.167 |
+| drop | - | **0.233** | 0.000 | 0.167 |
+| swap | - | **0.033** | 0.000 | 0.167 |
 
-**The gradient inverts between the two axes (H7).** What `constraint_only` relays -- which options are ruled out, with no reason attached -- asserts no condition at all, so the entailment detector scores it clean. Computed exactly from the generator it carries **2.585 bits** to an uninformed adversary against the answer's 1.085, because it names the barred pair outright instead of leaving it to be inferred. To a generator-aware adversary the two are **exactly equal** at 1.585 bits, since the answer then determines the barred pair anyway.
+The adversary ranks the scenario's candidate propositions against the relay by TF-IDF and takes the top one. A weak ranker is admissible: Fano holds for any estimator, so a poor one gives a looser but still valid lower bound. Bits are evaluated at the one-sided Clopper-Pearson upper limit of the error rate, not at the point estimate -- at this n a relay carrying nothing can beat chance by ranking luck, and Fano would turn that into bits. It is a floor in a second way too -- it reads surface text, so it cannot make the structural inference that naming the barred routes narrows S to the conditions sharing them. The computed column covers that, and the two belong side by side.
 
-So reason -> constraint -> conclusion is a gradient in what is *asserted*, not in what is *disclosed*. A defence that relays the constraint rather than the reason looks strictly better on every assertion-based measure and is not better at all inferentially. Hypothesis fixed in `results/prefreeze_rule.md` before the arm was run.
+This is measured on **`m1`, the relay**, not on the final answer. An earlier version read the answer, which made every arm that got the task right score identically -- the Full arm, which states the restricted fact verbatim, came out level with `decision_only`, which states only which option to book. That left the inferential axis unable to separate the arms, which was the reason for having it.
 
 
-Chance recovery is 0.167. Every arm that does the task recovers S's category well above chance, including the ones the assertion detector calls clean; the arms with no inferential leak are the arms that failed the task. **On a decision task the two axes trade against each other by construction** -- an arm cannot score high utility and low inferential leakage at once, because doing the task *is* the leak.
+The last two columns answer different questions and must not be read as one. **Recovery from the relay** is what the defence is responsible for, and the defended arms drive it to chance (0.167). **Recovery from the answer** is what the task output implies whatever the relay says, and no relay defence touches it: every arm that does the task sits well above chance there, including the ones the assertion detector calls clean, and the arms that do not are simply the arms that failed the task. So a defence can take relay disclosure to chance and leave answer-implied disclosure exactly where it was. **The second floor and utility trade against each other by construction** -- an arm cannot score high utility and low answer-implied leakage at once, because doing the task *is* that leak.
 
 So report this beside delta. A delta near 1.0 on decision tasks means the agent kept the use and dropped the disclosure, and that is still the finding -- but 'dropped the disclosure' cannot mean leakage went to zero, and a reader entitled to think it did would be misled. The relay-level measurements elsewhere in this report are leakage *through the relay text*; this is leakage through the task output, which no relay defence can touch.
 

@@ -448,8 +448,7 @@ def relay_leakage(runs: Sequence[dict], scenarios: Sequence[Scenario], *,
     exact computation in `analyse(observable=...)` covers that, and the two are
     reported side by side.
     """
-    from .probe import fano_mi_lower
-    from .probe import MatchProbe
+    from .probe import MatchProbe, error_upper_ci, fano_mi_lower
 
     by_id = {s.id: s for s in scenarios}
     probes: dict[str, tuple[MatchProbe, list[str]]] = {}
@@ -485,6 +484,17 @@ def relay_leakage(runs: Sequence[dict], scenarios: Sequence[Scenario], *,
     for arm, n in tot.items():
         k = max(2, int(round(sum(ks[arm]) / len(ks[arm]))))
         rec = hits[arm] / n
+        # Fano on the point estimate reads non-zero from noise at this n: a
+        # relay saying only "Book option B" scored 0.25 against a 0.167 chance
+        # by TF-IDF accident over 8 scenarios, which Fano turned into 0.03
+        # bits of "leakage" from a message carrying none. Evaluating at the
+        # one-sided Clopper-Pearson upper limit of the error rate gives a
+        # bound that holds at small n -- the same correction H4 needed in
+        # Experiment 2, for the same reason.
+        n_err = int(round(n * (1.0 - rec)))
+        e_hi = error_upper_ci(n_err, n)
         out[arm] = {"n": n, "k": k, "recovery": rec, "chance": 1.0 / k,
-                    "mi_lower_bits": fano_mi_lower(1.0 - rec, k)}
+                    "mi_lower_bits_point": fano_mi_lower(1.0 - rec, k),
+                    "error_rate_ci_hi": e_hi,
+                    "mi_lower_bits": fano_mi_lower(e_hi, k)}
     return out
