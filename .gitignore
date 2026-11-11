@@ -6,3 +6,5 @@ runs/ledger.jsonl
 runs/spend_state.json
 .env
 *.egg-info/
+runs/*.pid
+runs/*.err.log
