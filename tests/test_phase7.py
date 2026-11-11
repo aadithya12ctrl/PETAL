@@ -816,3 +816,82 @@ class TestPrefreezeSafeguards(unittest.TestCase):
         self.assertGreater(out["mi_bits"], 1.0)            # certainty gained
         self.assertEqual(out["mi_about_true_s_bits"], 0.0)  # about the true S
         self.assertEqual(out["recovery"], 0.0)
+
+
+class TestTransientNetworkErrors(unittest.TestCase):
+    """A long paid run must survive a network drop, not lose its work to one.
+
+    Stage 1 of the reported run died at scenario 24 of 60 because DNS failed
+    for under a minute and the transient-error path gave up after ~15s. The
+    429 path had already been made patient for exactly this reason; this
+    pins the same behaviour for connection and DNS failures.
+    """
+
+    def _backend(self, fail_times: int, **kw):
+        import requests
+        from petal.client import OpenRouterBackend
+
+        class Flaky(OpenRouterBackend):
+            def __init__(self, *a, **k):
+                super().__init__(*a, **k)
+                self.attempts = 0
+                self.slept = []
+
+            def _post(self):
+                self.attempts += 1
+                if self.attempts <= fail_times:
+                    raise requests.ConnectionError(
+                        "Failed to resolve 'openrouter.ai'")
+                class R:
+                    status_code = 200
+                    headers: dict = {}
+
+                    def json(self):
+                        return {"choices": [{"message": {"content": "ok"},
+                                             "finish_reason": "stop"}],
+                                "usage": {"prompt_tokens": 1,
+                                          "completion_tokens": 1}}
+                return R()
+
+        b = Flaky("k", **kw)
+
+        class FakeSession:
+            def post(_s, *a, **k):
+                return b._post()
+
+        b._session = FakeSession()
+        return b
+
+    def _run(self, b):
+        import time as _t
+        from petal.config import default_config
+        slept = []
+        real = _t.sleep
+        _t.sleep = lambda s: slept.append(s)
+        try:
+            spec = default_config().model("dev")
+            try:
+                out = b.complete(spec, {"messages": []})
+            except RuntimeError as e:
+                return None, slept, str(e)
+            return out, slept, ""
+        finally:
+            _t.sleep = real
+
+    def test_survives_a_network_drop_that_outlasts_a_short_backoff(self):
+        b = self._backend(4)
+        out, slept, err = self._run(b)
+        self.assertEqual(err, "")
+        self.assertIsNotNone(out)
+        self.assertEqual(b.attempts, 5)
+        # patient, not exponential-from-1s: the first four waits alone must
+        # cover more than the ~15s that killed stage 1
+        self.assertGreater(sum(slept), 60.0)
+
+    def test_gives_up_eventually_and_says_the_cause(self):
+        b = self._backend(99, max_network_retries=3)
+        out, slept, err = self._run(b)
+        self.assertIsNone(out)
+        self.assertIn("network", err)
+        self.assertIn("resolve", err)
+        self.assertLessEqual(len(slept), 4)

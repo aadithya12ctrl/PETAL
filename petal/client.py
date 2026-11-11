@@ -77,7 +77,8 @@ class OpenRouterBackend(Backend):
 
     def __init__(self, key: str, timeout: float = 120.0, max_retries: int = 4,
                  app_title: str = "PETAL-research",
-                 max_rate_limit_retries: int = 8):
+                 max_rate_limit_retries: int = 8,
+                 max_network_retries: int = 8):
         self.key = key
         self.timeout = timeout
         self.max_retries = max_retries
@@ -85,6 +86,10 @@ class OpenRouterBackend(Backend):
         #: other transient errors: they come from the pinned provider's shared
         #: pool, and clear in minutes rather than seconds.
         self.max_rate_limit_retries = max_rate_limit_retries
+        #: Connection and DNS failures are counted and waited out the same way,
+        #: and for the same reason: they are local, transient, and outlast a
+        #: short backoff. See the comment in `complete`.
+        self.max_network_retries = max_network_retries
         self.app_title = app_title
         self._session = requests.Session()
 
@@ -99,17 +104,35 @@ class OpenRouterBackend(Backend):
     def complete(self, spec: ModelSpec, payload: dict[str, Any]) -> dict[str, Any]:
         last_err: Exception | None = None
         rate_tries = 0
+        net_tries = 0
         attempt = -1
         while True:
             attempt += 1
-            if attempt >= self.max_retries + rate_tries:
+            if attempt >= self.max_retries + rate_tries + net_tries:
                 break
             try:
                 r = self._session.post(OPENROUTER_URL, headers=self._headers(),
                                        data=json.dumps(payload), timeout=self.timeout)
             except requests.RequestException as e:
+                # A dropped connection or a failed DNS lookup is the same kind
+                # of event as the upstream 429 handled below: local, transient,
+                # and lasting longer than the ~15s that four attempts of
+                # min(2**n, 20) give up after. Stage 1 of the reported run died
+                # at scenario 24 of 60 on `Failed to resolve 'openrouter.ai'`;
+                # the network was back within the minute, but the run was gone.
+                # Every completed call is in the disk cache, so the only cost of
+                # waiting is wall-clock, and the only cost of *not* waiting is
+                # the whole run.
                 last_err = e
-                time.sleep(min(2 ** attempt, 20))
+                net_tries += 1
+                if net_tries > self.max_network_retries:
+                    break
+                wait = min(15.0 * net_tries, 120.0)
+                wait += random.uniform(0, 0.3 * wait)   # de-synchronise
+                print("[client] network error (%s); waiting %.0fs (attempt %d/%d)"
+                      % (type(e).__name__, wait, net_tries,
+                         self.max_network_retries))
+                time.sleep(wait)
                 continue
             if r.status_code == 200:
                 obj = r.json()
@@ -144,8 +167,9 @@ class OpenRouterBackend(Backend):
                 time.sleep(min(2 ** attempt, 20))
                 continue
             raise RuntimeError("OpenRouter HTTP %d: %s" % (r.status_code, r.text[:800]))
-        raise RuntimeError("OpenRouter failed after %d attempts (%d rate-limited): %s"
-                           % (attempt + 1, rate_tries, last_err))
+        raise RuntimeError("OpenRouter failed after %d attempts (%d rate-limited, "
+                           "%d network): %s"
+                           % (attempt + 1, rate_tries, net_tries, last_err))
 
 
 # ----------------------------------------------------------------------- mock
