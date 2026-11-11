@@ -466,13 +466,19 @@ class TestTruncationGuard(unittest.TestCase):
                          cache_enabled=False)
 
     def test_truncated_but_non_empty_is_still_caught(self):
-        c = self._client(["length"] * 7 + ["stop"] * 3)
+        # Each call now escalates 2000 -> 4000 -> 8000 before giving up, so a
+        # call that is truncated at every budget consumes three attempts. The
+        # contract under test is unchanged: text plus finish_reason="length"
+        # must reach the guard. What changed is that it must survive the
+        # escalation first, so that a retry which succeeded is not counted.
+        c = self._client(["length"] * 21 + ["stop"] * 3)
         for i in range(10):
             c.chat("agent_a", [{"role": "user", "content": "q%d" % i}])
         rep = c.empty_report(10)
         self.assertEqual(rep["n_empty"], 0)          # an empty-only check passes
         self.assertEqual(rep["n_truncated"], 7)      # this one does not
         self.assertAlmostEqual(rep["truncated_rate"], 0.7)
+        self.assertEqual(rep["n_escalated"], 14)     # two per failed call
 
     def test_clean_run_reports_neither(self):
         c = self._client(["stop"] * 4)
@@ -895,3 +901,81 @@ class TestTransientNetworkErrors(unittest.TestCase):
         self.assertIn("network", err)
         self.assertIn("resolve", err)
         self.assertLessEqual(len(slept), 4)
+
+
+class TestTruncationEscalation(unittest.TestCase):
+    """A call cut off at max_tokens is retried at a larger budget.
+
+    Raising the budget globally only moved the problem: 5.1% of calls
+    truncated at 900 tokens, 2.8% at 2000, against a median completion of
+    335. And truncation is not harmless -- runs touched by one still produce
+    a FINAL line 93% of the time and score 0.179 against 0.670, concentrated
+    in the arms whose planner lacks the restricted fact. So the budget is
+    escalated per call, by rule, on finish_reason alone.
+    """
+
+    def _client(self, lengths):
+        """A client whose backend truncates until max_tokens >= lengths."""
+        from petal.client import Backend, LLMClient
+        from petal.config import default_config
+
+        class Trunc(Backend):
+            name = "trunc"
+            version = "t1"
+
+            def __init__(self):
+                self.seen = []
+
+            def complete(self, spec, payload):
+                mt = payload["max_tokens"]
+                self.seen.append(mt)
+                cut = mt < lengths
+                ct = mt if cut else lengths
+                return {"model": spec.model, "provider": "p",
+                        "choices": [{"message": {"content": "x" * ct},
+                                     "finish_reason": "length" if cut else "stop"}],
+                        "usage": {"prompt_tokens": 1, "completion_tokens": ct,
+                                  "cost": 0.0}}
+
+        b = Trunc()
+        c = LLMClient(default_config(), backend=b, cache_enabled=False)
+        return c, b
+
+    def test_escalates_until_the_call_completes(self):
+        c, b = self._client(3000)          # needs more than the 2000 default
+        r = c.chat("agent_a", [{"role": "user", "content": "hi"}])
+        self.assertEqual(r.finish_reason, "stop")
+        self.assertEqual(b.seen, [2000, 4000])
+        self.assertEqual(len(c.truncated), 0)   # not a truncated result
+        self.assertEqual(len(c.escalated), 1)   # one escalation, reported
+
+    def test_an_untruncated_call_is_never_retried(self):
+        c, b = self._client(100)
+        c.chat("agent_a", [{"role": "user", "content": "hi"}])
+        self.assertEqual(b.seen, [2000])
+        self.assertEqual(len(c.escalated), 0)
+        self.assertEqual(len(c.truncated), 0)
+
+    def test_still_truncated_at_the_ceiling_is_reported_not_hidden(self):
+        c, b = self._client(10 ** 9)       # never completes
+        r = c.chat("agent_a", [{"role": "user", "content": "hi"}])
+        self.assertEqual(r.finish_reason, "length")
+        self.assertEqual(b.seen, [2000, 4000, 8000])
+        self.assertEqual(len(c.truncated), 1)   # the guard must still see it
+        rep = c.empty_report(1)
+        self.assertEqual(rep["n_truncated"], 1)
+        self.assertEqual(rep["n_escalated"], 2)
+
+    def test_intermediate_attempts_do_not_trip_the_guard(self):
+        """The whole point: an escalation that worked must not read as a fault.
+
+        Before this, every truncated first attempt was recorded, so the 2%
+        guard would refuse a run whose returned data was complete.
+        """
+        c, _ = self._client(3000)
+        for _ in range(50):
+            c.chat("agent_a", [{"role": "user", "content": "hi"}])
+        rep = c.empty_report(50)
+        self.assertEqual(rep["n_truncated"], 0)
+        self.assertEqual(rep["truncated_rate"], 0.0)
+        self.assertEqual(rep["n_escalated"], 50)

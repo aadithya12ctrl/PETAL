@@ -178,6 +178,16 @@ def main() -> int:
     # nothing produces a tidy dataset of zeros with no error anywhere. Check the
     # rate before letting the run stand.
     rep = client.empty_report(sum(r.calls for r in records))
+    if rep.get("n_escalated"):
+        # Not a fault: these are the calls the model ran past its budget on,
+        # retried at a larger one. Reported because the rate belongs in the
+        # paper -- it is how often the relay wanted more room than configured.
+        print("
+ESCALATED after truncation: %d of %d calls (%.1f%%)"
+              % (rep["n_escalated"], rep["n_calls"],
+                 100 * rep["n_escalated"] / max(1, rep["n_calls"])))
+        for k, v in sorted(rep["escalated_by"].items()):
+            print("   %-50s %d" % (k, v))
     if rep["n_empty"]:
         print("\nEMPTY COMPLETIONS: %d of %d calls (%.1f%%)%s"
               % (rep["n_empty"], rep["n_calls"], 100 * rep["rate"],

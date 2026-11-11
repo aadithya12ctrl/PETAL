@@ -358,7 +358,7 @@ to flatter the testbed.
 
 ## Post-freeze harness changes, recorded in full
 
-The freeze binds the testbed, not the harness. Two harness faults were found
+The freeze binds the testbed, not the harness. Three harness faults were found
 *after* it, by the guards written before it. Both are recorded here because a
 change made after a paid run is only defensible if a reader can see it.
 
@@ -426,6 +426,53 @@ cache, so waiting costs wall-clock and nothing else, while not waiting costs
 the run. The re-run confirmed it -- two network stalls were absorbed mid-matrix
 (`ChunkedEncodingError`, then `ConnectionError` x3) and the run continued.
 
-Neither change touches `scenarios.json`, so the frozen hash
+
+### 3. Truncation escalated per call instead of by raising the global budget
+
+Raising `agent_a` from 900 to 2000 tokens (change 1 above) cut truncation from
+5.1% to 2.8% of calls -- still above the 2% guard, which refused the run again.
+The measurement that settled what to do next:
+
+| | n | parseable FINAL | mean utility, decision |
+|---|---|---|---|
+| runs touched by a truncated call | 30 | 93% | **0.179** |
+| clean runs | 390 | 100% | **0.670** |
+
+Three facts follow.
+
+**The budget is not uniformly too small.** Median completion is 335 tokens, p90
+is 689, p95 is 1118 -- then p98 is already at the cap. It is a thin heavy tail,
+and each doubling of the budget costs a full re-run of the matrix while
+removing only about half of what is left. Chasing it globally is a losing game.
+
+**Truncation is not caught by the exclusion rule.** A touched run still emits a
+parseable FINAL line 93% of the time, so the pre-registered harness-failure
+exclusion ("no parseable FINAL line") would have removed 2 of the 30. The other
+28 would have been reported as results, at 0.179 against 0.670.
+
+**It is still skewed toward the undefended arms** (Drop 14 of 35, against Full
+4), for the reason given in change 1: a planner without the restricted fact
+deliberates rather than answers.
+
+**The rule adopted.** Any call returning `finish_reason="length"` is retried at
+twice the budget, up to a ceiling of 8000 tokens. The decision is taken on
+`finish_reason` alone -- never on the content, the chosen option, or any score
+-- so it is a rule applied uniformly, not a judgement about particular runs. A
+call still truncated at the ceiling is recorded as truncated and reaches the 2%
+guard exactly as before; an intermediate attempt that was superseded is
+recorded as an *escalation* and reported with its own count, because a retry
+that worked is not a fault in the data.
+
+**Why this is cheaper as well as better.** The first attempt keeps its cache
+key, so only the ~35 escalated calls and the downstream hops whose input
+changed are new paid calls -- a few cents against another ~$1.2 for a full
+pass at 4000 tokens. And unlike a global raise it does not censor differently
+across arms, which was the actual harm.
+
+**What the paper must report.** The escalation rate (how often the relay wanted
+more room than configured) and the residual truncation rate at the ceiling.
+Both come straight out of `empty_report()`.
+
+None of these changes touches `scenarios.json`, so the frozen hash
 (`b981621de102`) still holds and `prereg.check()` still passes. `config.json`
 hashes differently, and this section is why.

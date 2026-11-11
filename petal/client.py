@@ -219,7 +219,7 @@ class LLMClient:
     def __init__(self, cfg: Config, backend: Backend | None = None,
                  cache: DiskCache | None = None, meter: CostMeter | None = None,
                  prices: dict[str, Price] | None = None, cache_enabled: bool = True,
-                 offline: bool = False):
+                 offline: bool = False, escalation_ceiling: int = 8000):
         self.cfg = cfg
         #: Responses that arrived with no usable text. Counted rather than
         #: raised on, because one truncated completion is a fact about a hard
@@ -230,6 +230,12 @@ class LLMClient:
         #: Responses cut off at max_tokens. Tracked separately from `empty`
         #: because the cause and the fix differ, but checked the same way.
         self.truncated: list[dict[str, Any]] = []
+        #: Calls that were cut off and retried at a larger budget. Not faults:
+        #: the retry is what keeps the truncation out of the data. Counted so
+        #: the paper can report how often the escalation fired.
+        self.escalated: list[dict[str, Any]] = []
+        #: The largest budget a single call may escalate to.
+        self.escalation_ceiling = escalation_ceiling
         self.cache = cache if cache is not None else DiskCache(enabled=cache_enabled)
         self.meter = meter or CostMeter(cfg.spend_limit_usd, warn_at_usd=cfg.warn_at_usd,
                                         prices=prices or {})
@@ -245,7 +251,7 @@ class LLMClient:
         return isinstance(self.backend, OpenRouterBackend)
 
     # ------------------------------------------------------------------ call
-    def chat(self, role: str, messages: list[dict[str, str]], *,
+    def _chat_once(self, role: str, messages: list[dict[str, str]], *,
              seed: int | None = None, temperature: float | None = None,
              max_tokens: int | None = None, tag: str = "",
              model_override: str | None = None,
@@ -295,6 +301,76 @@ class LLMClient:
         self.cache.put(key, raw)
         return self._from_raw(raw, role, spec, cached=False, latency=latency, tag=tag)
 
+    def chat(self, role: str, messages: list[dict[str, str]], **kw) -> LLMResponse:
+        """One call, retried at a larger budget if the model was cut off.
+
+        Raising `max_tokens` globally does not fix truncation here, it only
+        moves it. Measured on the reported model: at 900 tokens 5.1% of calls
+        were cut off, at 2000 still 2.8%, while the median completion is 335
+        tokens and p95 is 1118 -- a thin, heavy tail rather than a budget that
+        is uniformly too small. Each doubling costs a full re-run of the
+        matrix and removes about half of what is left.
+
+        Truncation is also not harmless noise. A run touched by a truncated
+        call still produces a parseable FINAL line 93% of the time, so the
+        harness-failure exclusion does not catch it, and it scores 0.179 mean
+        utility on decision tasks against 0.670 for clean runs. It is
+        concentrated in the arms whose planner lacks the restricted fact,
+        because those deliberate instead of answering, so it depresses U_drop
+        hardest and biases every delta upward.
+
+        So escalate per call instead: double the budget for the call that was
+        cut off, up to the ceiling, and leave every other call alone. The
+        decision is taken on `finish_reason` alone, never on the content or
+        the score, so it is a rule rather than a judgement. The first attempt
+        keeps its cache key, which is why this costs a few cents rather than
+        another full pass.
+        """
+        budget = kw.pop("max_tokens", None)
+        if budget is None:
+            budget = self.cfg.model(role).max_tokens
+        while True:
+            resp = self._chat_once(role, messages, max_tokens=budget, **kw)
+            if resp.finish_reason != "length":
+                break
+            nxt = min(budget * 2, self.escalation_ceiling)
+            if nxt <= budget:
+                break                      # at the ceiling; report as truncated
+            self.escalated.append({
+                "role": role, "model": resp.model, "from": budget, "to": nxt,
+                "completion_tokens": resp.completion_tokens,
+                "tag": kw.get("tag", ""),
+            })
+            budget = nxt
+        self._note_outcome(resp)
+        return resp
+
+    def _note_outcome(self, resp: LLMResponse) -> None:
+        """Record the outcome of the call actually returned.
+
+        Only the final attempt counts. An intermediate attempt that was cut
+        off and then retried at a larger budget is an escalation, not a
+        truncated result, and counting it would make the guard refuse a run
+        whose data is sound.
+        """
+        usage = (resp.raw.get("usage") or {})
+        if resp.finish_reason == "length":
+            self.truncated.append({
+                "role": resp.role, "model": resp.model, "provider": resp.provider,
+                "completion_tokens": resp.completion_tokens,
+                "max_tokens": self.escalation_ceiling,
+                "chars": len(resp.text), "cached": resp.cached, "tag": "",
+            })
+        if not resp.text:
+            rt = (usage.get("completion_tokens_details") or {}).get("reasoning_tokens")
+            self.empty.append({
+                "role": resp.role, "model": resp.model, "provider": resp.provider,
+                "finish_reason": resp.finish_reason,
+                "completion_tokens": resp.completion_tokens,
+                "reasoning_tokens": rt, "max_tokens": self.escalation_ceiling,
+                "cached": resp.cached, "tag": "",
+            })
+
     # ----------------------------------------------------------------- parse
     def _from_raw(self, raw: dict[str, Any], role: str, spec: ModelSpec, *,
                   cached: bool, latency: float, tag: str) -> LLMResponse:
@@ -317,31 +393,13 @@ class LLMClient:
             cached=cached, tag=tag,
         )
         finish = choices[0].get("finish_reason")
-        if finish == "length":
-            # A message cut off mid-sentence is scored as a bad answer exactly
-            # as an empty one is, and is just as silent. Measured on
-            # qwen/qwen3.8-27b with thinking off: at max_tokens 400, seven of
-            # ten planner calls were truncated while returning plenty of text,
-            # so an empty-only check would have passed them all.
-            self.truncated.append({
-                "role": role, "model": spec.model, "provider": raw.get("provider"),
-                "completion_tokens": ct, "max_tokens": spec.max_tokens,
-                "chars": len(text), "cached": cached, "tag": tag,
-            })
-        if not text:
-            # A reasoning model can spend its whole max_tokens budget on
-            # reasoning tokens and return finish_reason="length" with no
-            # content at all. Measured on qwen/qwen3.8-27b via one provider:
-            # 14 of 19 real calls. Nothing downstream notices -- the scorer
-            # reads "" as a wrong answer and records utility 0.0 -- so a
-            # misconfigured model yields a clean-looking dataset of zeros.
-            rt = (usage.get("completion_tokens_details") or {}).get("reasoning_tokens")
-            self.empty.append({
-                "role": role, "model": spec.model, "provider": raw.get("provider"),
-                "finish_reason": finish, "completion_tokens": ct,
-                "reasoning_tokens": rt, "max_tokens": spec.max_tokens,
-                "cached": cached, "tag": tag,
-            })
+        # A message cut off mid-sentence is scored as a bad answer exactly as
+        # an empty one is, and is just as silent -- it still returns plenty of
+        # text. An empty completion is the same silence from a reasoning model
+        # that spent its whole budget thinking. Both are recorded, but by
+        # `_note_outcome` on the call that is actually returned: `chat` retries
+        # a truncated call at a larger budget first, and an attempt that was
+        # superseded is an escalation rather than a result.
         return LLMResponse(
             text=text, role=role, model=spec.model,
             model_served=raw.get("model"), provider=raw.get("provider"),
@@ -360,7 +418,11 @@ class LLMClient:
                       and e.get("reasoning_tokens")
                       and e["reasoning_tokens"] >= e.get("max_tokens", 0))
         tby = Counter((e["model"], e.get("provider")) for e in self.truncated)
-        return {"n_empty": len(self.empty), "n_calls": n_calls,
+        eby = Counter((e["model"], "%d->%d" % (e["from"], e["to"]))
+                      for e in self.escalated)
+        return {"n_escalated": len(self.escalated),
+                "escalated_by": {"%s | %s" % k: v for k, v in eby.items()},
+                "n_empty": len(self.empty), "n_calls": n_calls,
                 "rate": (len(self.empty) / n_calls) if n_calls else 0.0,
                 "budget_starved": starved,
                 "by": {"%s | %s | %s" % k: v for k, v in by.items()},
