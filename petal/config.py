@@ -134,11 +134,23 @@ def default_config() -> Config:
     cfg.models = {
         "agent_a": ModelSpec(
             role="agent_a", model="qwen/qwen3.8-27b",
-            # Measured with thinking off: planner completions run 368-674
-            # tokens (median 445). At 400 seven of ten planner calls were cut
-            # off mid-message; a truncated relay is scored as a bad answer and
-            # says nothing about the model.
-            temperature=0.7, max_tokens=900,
+            # Measured with thinking off on a ten-call smoke: planner
+            # completions ran 368-674 tokens (median 445). At 400 seven of ten
+            # planner calls were cut off mid-message; a truncated relay is
+            # scored as a bad answer and says nothing about the model.
+            #
+            # 900 was still too small, and the smoke could not have shown it.
+            # On the full 60 x 7 matrix 64 of 1260 calls (5.1%) hit the cap,
+            # and they were not spread evenly: 31 in Drop and 15 in
+            # b4_restriction against 7 in Full. The arms whose planner lacks
+            # the restricted fact deliberate, hedge and enumerate; the arms
+            # that hold it answer short. So the cap censored the undefended
+            # arms hardest, which would have pushed U_drop down, inflated the
+            # (U_full - U_drop) denominator, and biased every delta upward --
+            # in the hypothesis's own favour. 2000 covers the observed tail
+            # with room; output tokens bill as used, so the headroom is free
+            # on every call that does not need it.
+            temperature=0.7, max_tokens=2000,
             # "thinking off", per plan section 2. Without it the model reasons
             # and never reaches a visible answer.
             reasoning_enabled=False,
@@ -150,7 +162,13 @@ def default_config() -> Config:
         ),
         "agent_b": ModelSpec(
             role="agent_b", model="meta-llama/llama-3.3-70b-instruct",
-            temperature=0.7, max_tokens=400,
+            # Raised from 400 with agent_a, before agent_b's stage runs rather
+            # than after. Nothing has been measured on this model, and 400 is
+            # the value that truncated seven of ten calls on the other one; the
+            # deliberation-length effect that did it is a property of the
+            # undefended arms, not of Qwen. Spending the stage first and
+            # discovering the same 5% afterwards would waste the run.
+            temperature=0.7, max_tokens=2000,
             # not a reasoning model; pinned for the same reproducibility reason
             provider_order=["CoreWeave"], quantization="fp16",
         ),

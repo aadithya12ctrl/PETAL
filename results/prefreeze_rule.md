@@ -355,3 +355,77 @@ to flatter the testbed.
   while what they learn about the actual S is nil. Reported as one number the
   arm would read as the leakiest in the study; reported as both, it reads as
   what it is -- misleading rather than leaking.
+
+## Post-freeze harness changes, recorded in full
+
+The freeze binds the testbed, not the harness. Two harness faults were found
+*after* it, by the guards written before it. Both are recorded here because a
+change made after a paid run is only defensible if a reader can see it.
+
+### 1. Token budget raised 900 -> 2000 on `agent_a` and 400 -> 2000 on `agent_b`
+
+**What the guard found.** Stage 1 (`agent_a`, 60 scenarios x 7 arms, 1260
+calls) finished and the truncation guard refused to let it stand: **64 calls
+(5.1%) were cut off at `max_tokens`**, against a 2% threshold fixed before any
+paid call. No call returned empty, so the `reasoning_enabled=False` fix held.
+
+**Why it is not evenly spread.** The truncated calls by arm:
+
+| arm | truncated | | arm | truncated |
+|---|---|---|---|---|
+| `drop` | 31 | | `decision_only` | 4 |
+| `b4_restriction` | 15 | | `b1_privacy` | 2 |
+| `swap` | 7 | | `constraint_only` | 2 |
+| `full` | 7 | | | |
+
+47 of 68 were planner hops. The pattern is mechanical: a planner that lacks the
+restricted fact deliberates, hedges and enumerates options, while one that
+holds it answers short. The cap therefore censored the *undefended* arms
+hardest -- 31 in Drop against 7 in Full.
+
+**Why that direction matters.** A truncated relay is scored as a wrong answer.
+Censoring Drop four times as often as Full pushes `U_drop` down, inflates the
+`(U_full - U_drop)` denominator, and biases **every delta in the paper upward**
+-- that is, in the direction the hypothesis wants. Left in, it would have
+produced a clean-looking dataset with a flattering error built into the
+denominator of the headline quantity.
+
+**Why this is not selection on the outcome.** The remedy is the one the guard
+itself pre-registers, in the text it prints: *"Raise max_tokens for the
+affected role."* The decision was taken on the truncation rate alone; no
+utility, delta, leak rate or MI figure from stage 1 was examined, and the run
+that triggered it is discarded rather than reported. The same guard, at the
+same 2% threshold, had already rejected the dev pilot at 400 tokens (10.3%)
+before the freeze.
+
+**Why 2000 and not 1000.** The observed distribution is censored at the cap, so
+the tail length is unknown by construction. Planner completions run to a median
+of 70 tokens and a p90 of 304, then jump to the cap; 2000 covers the visible
+tail several times over. Output tokens bill as used, so headroom costs nothing
+on a call that does not need it.
+
+**`agent_b` raised at the same time, before its stage runs.** Nothing had been
+measured on Llama-3.3-70b, and 400 is the value that truncated seven of ten
+calls on the other model. The deliberation-length effect belongs to the
+undefended arms, not to Qwen. Running the stage first and finding the same 5%
+afterwards would have wasted it.
+
+**Cost.** `max_tokens` participates in the request cache key, by design: a
+different budget is a different run. Stage 1 is therefore re-run from scratch
+at full price (~$1.2). The discarded run is kept on disk as evidence.
+
+### 2. Network failures waited out rather than fatal (commit `c0972b4`)
+
+Stage 1's first attempt died at scenario 24 of 60 on a DNS lookup failure that
+lasted under a minute; the transient-error path gave up after four attempts of
+`min(2**n, 20)`, about fifteen seconds. Upstream 429s had already been made
+patient for this reason. Connection and DNS failures now get their own counter,
+`min(15s * n, 120s)` with jitter, eight attempts, and the count named in the
+final error. The asymmetry is the argument: every completed call is in the disk
+cache, so waiting costs wall-clock and nothing else, while not waiting costs
+the run. The re-run confirmed it -- two network stalls were absorbed mid-matrix
+(`ChunkedEncodingError`, then `ConnectionError` x3) and the run continued.
+
+Neither change touches `scenarios.json`, so the frozen hash
+(`b981621de102`) still holds and `prereg.check()` still passes. `config.json`
+hashes differently, and this section is why.
