@@ -473,6 +473,48 @@ across arms, which was the actual harm.
 more room than configured) and the residual truncation rate at the ceiling.
 Both come straight out of `empty_report()`.
 
+#### Addendum: the predicted bias did not materialise, and the first estimate of
+#### it was confounded
+
+The escalation rule was adopted on the argument that truncation depressed
+`U_drop` and so inflated every delta. With both runs now on disk -- the same 60
+scenarios, 7 arms and seed, differing only in whether the 36 cut-off calls were
+retried -- that argument is directly testable, and it does not hold:
+
+| arm (decision) | accepted (escalated) | rejected (cut off at 2000) | change |
+|---|---|---|---|
+| `full` | 0.767 | 0.767 | 0.000 |
+| `b1_privacy` | 0.700 | 0.667 | +0.033 |
+| `b4_restriction` | 0.267 | 0.267 | 0.000 |
+| `constraint_only` | 0.800 | 0.800 | 0.000 |
+| `decision_only` | 0.833 | 0.833 | 0.000 |
+| `swap` | 0.600 | 0.567 | +0.033 |
+| `drop` | 0.333 | 0.333 | 0.000 |
+
+The delta denominator `(U_full - U_drop)` is **0.433 in both**. Two arms moved
+by one scenario each; nothing else moved at all.
+
+**The 0.179-against-0.670 figure above was confounded, and the confound points
+the obvious way.** Runs that truncate are disproportionately `drop` and
+`b4_restriction` runs on hard scenarios -- that is *why* their planners
+deliberate instead of answering. Those runs score near the chance floor whether
+or not they are cut off. So the comparison measured which runs truncate, not
+what truncation does to them. Reading it as the causal effect was a mistake: the
+causal estimate requires the same runs under both budgets, which is the table
+above.
+
+**The rule stands, for the reasons that survive.** A call cut off at the budget
+is a harness artefact and not a model behaviour, the escalation removes it by a
+rule fixed on `finish_reason` alone, and it cost $0.19 against ~$1.2 for another
+global pass. What does *not* survive is the claim that it corrected a
+measurable bias in the reported numbers. It did not. The honest statement for
+the paper is that the artefact was removed and, when checked against the
+un-escalated run, had not moved any aggregate by more than one scenario.
+
+This addendum is kept rather than folded into the section above, because the
+sequence matters: the prediction was made before the check, and the check
+refuted it.
+
 None of these changes touches `scenarios.json`, so the frozen hash
 (`b981621de102`) still holds and `prereg.check()` still passes. `config.json`
 hashes differently, and this section is why.
