@@ -182,8 +182,7 @@ def main() -> int:
         # Not a fault: these are the calls the model ran past its budget on,
         # retried at a larger one. Reported because the rate belongs in the
         # paper -- it is how often the relay wanted more room than configured.
-        print("
-ESCALATED after truncation: %d of %d calls (%.1f%%)"
+        print("\nESCALATED after truncation: %d of %d calls (%.1f%%)"
               % (rep["n_escalated"], rep["n_calls"],
                  100 * rep["n_escalated"] / max(1, rep["n_calls"])))
         for k, v in sorted(rep["escalated_by"].items()):
