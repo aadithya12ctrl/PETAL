@@ -518,3 +518,68 @@ refuted it.
 None of these changes touches `scenarios.json`, so the frozen hash
 (`b981621de102`) still holds and `prereg.check()` still passes. `config.json`
 hashes differently, and this section is why.
+
+## Pre-registration amendment 1: the judge reads every `m1` span
+
+Recorded before the amended detection pass ran, and after the entailment scores
+for stage 1 existed but before any leak rate was recomputed from them.
+
+**What the pinned detector did.** A three-stage cascade: a lexical gate on
+watched paraphrases, then entailment against the name-generic proposition, then
+the judge on the uncertain band `0.25 <= p <= 0.75`.
+
+**Why that is not good enough on the channel the results rest on.** Two
+measurements, both from stage 1's own scores:
+
+* **The band is nearly empty.** Of 28,445 scored (span, hypothesis) pairs,
+  **37 fall in it -- 0.13%**. 27,984 are below the floor and 424 above the
+  ceiling. The detection pass made **0 judge calls**, and would have made about
+  14 with `--paid`.
+* **The cases the judge was added for sit below the floor, not inside the
+  band.** On the Colab sanity probes the model scores a plain paraphrase
+  ("attends the renal unit three mornings a week for treatment of kidney
+  failure") at **0.001** and an implication ("must avoid the mornings she
+  spends on the machine") at **0.010**, against 0.999 for a verbatim mention and
+  0.828 for a euphemism. MNLI is behaving correctly and is the wrong shape for
+  the question: attending a renal unit does not *entail* haemodialysis, but it
+  plainly discloses it.
+
+Together: the third stage was positioned to arbitrate a band almost nothing
+lands in, while the subtle disclosures it exists to catch pass underneath it.
+Lowering the threshold cannot fix this -- 0.001 is below any usable floor.
+
+**Why it biases the defended arms specifically.** `full` states the restricted
+fact outright, so the lexical gate catches it and the measured 0.767 is close to
+true. A `constraint_only` relay that says "unavailable Tuesday mornings due to
+ongoing renal treatment" is scored clean by every stage. So the defended arms'
+rates are lower bounds in a way `full`'s is not, and the **ratio between them is
+inflated by an unknown factor**. The headline "77% to 3%" is therefore not safe
+to quote from the cascade alone.
+
+**What the Swap control does and does not establish.** It asserts S' at 0.700
+while asserting S at 0.000, which proves the detector fires on explicit
+statements of a condition and is specific about *which* condition. It says
+nothing about paraphrase sensitivity, because the Swap relays state S'
+explicitly too.
+
+**The amendment.** On `m1` -- and only `m1`, the channel every reported leak
+rate, Lambda and Phi_floor are computed from -- the judge reads **every** span,
+whatever the cascade routed it to. The cascade's own verdict is recorded beside
+the judge's in `cascade_leak` and `cascade_route`, so the cheap detector's
+sensitivity is **measured against the judge on the same texts** rather than
+assumed. Other channels keep the cascade unchanged.
+
+**What this costs and what it cannot do.** About $0.50 on the judge model. It
+does not make the rates exact: the judge is one more imperfect reader, and the
+hand-labelled set plus Rogan-Gladen is still what attaches sensitivity and
+specificity to the final numbers. `Phi_floor = 0.000` is an entailment-based
+lower bound until this pass runs, exactly as the defended arms' rates are.
+
+**Pre-registered expectation, written before the pass.** The judge will raise
+the defended arms' rates more than `full`'s, because `full`'s leaks are already
+caught lexically and the defended arms' are the paraphrase cases. If instead the
+defended arms stay near 0.03, the 23x separation is real as measured; if they
+rise to `full`'s level, the finding is that these defences suppress wording
+rather than disclosure. Both outcomes are reportable and the second is the more
+interesting one. **The ratio quoted in the paper will be the judge-read one,
+whatever it turns out to be.**

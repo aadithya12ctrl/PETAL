@@ -76,6 +76,11 @@ def main() -> int:
     ap.add_argument("--runs", required=True)
     ap.add_argument("--out", default="")
     ap.add_argument("--paid", action="store_true", help="allow judge escalation")
+    ap.add_argument("--judge-channels", default="",
+                    help="comma-separated channels whose every span goes to the "
+                         "judge regardless of routing, e.g. 'm1'. The cascade's "
+                         "own verdict is kept alongside, so its sensitivity is "
+                         "measured rather than assumed. Requires --paid.")
     ap.add_argument("--yes", action="store_true")
     ap.add_argument("--no-nli", action="store_true", help="lexical gate only")
     ap.add_argument("--emit-pairs", action="store_true",
@@ -125,7 +130,18 @@ def main() -> int:
                    str(args.runs).replace(".jsonl", "") + "_pairs.jsonl"))
         print("entailment cache: %d pairs from %s" % (len(cache), cache_path))
         nli = CachedNliScorer(cache)
-    det = CascadeDetector(nli, cfg, client=client)
+    jc = [c.strip() for c in args.judge_channels.split(",") if c.strip()]
+    bad = [c for c in jc if c not in CHANNELS]
+    if bad:
+        raise SystemExit("--judge-channels: unknown channel(s) %s; known: %s"
+                         % (bad, CHANNELS))
+    if jc and client is None:
+        raise SystemExit("--judge-channels needs --paid --yes: the judge is a "
+                         "paid model, and without it the nominated channels "
+                         "would silently fall back to the cascade.")
+    if jc:
+        print("judge on every span of: %s" % ", ".join(jc))
+    det = CascadeDetector(nli, cfg, client=client, judge_channels=jc)
 
     records = []
     t0 = time.time()

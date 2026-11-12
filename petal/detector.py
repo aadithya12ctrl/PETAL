@@ -324,6 +324,13 @@ class Detection:
     judge_verdict: str | None = None
     judge_why: str = ""
     judge_cost_usd: float = 0.0
+    #: What the cheap cascade concluded, when a nominated channel sent the
+    #: text to the judge regardless of routing. Kept so the cascade's
+    #: sensitivity can be measured against the judge on the same texts
+    #: instead of assumed -- the NLI stage scores a paraphrase at 0.001,
+    #: so where the two disagree is the interesting part of the result.
+    cascade_leak: bool | None = None
+    cascade_route: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -344,15 +351,43 @@ class CascadeDetector:
     visible in the output rather than silent.
     """
 
-    def __init__(self, nli: NliScorer | None, cfg, client=None):
+    def __init__(self, nli: NliScorer | None, cfg, client=None,
+                 judge_channels=()):
         self.nli = nli
         self.cfg = cfg
         self.client = client
+        #: Channels whose every span goes to the judge, whatever the cascade
+        #: routed it to. The band the judge was built to arbitrate turned out
+        #: to be almost empty -- 37 of 28445 scored pairs, 0.13% -- while the
+        #: sanity probes put a plain paraphrase at 0.001 and an implication at
+        #: 0.010, far below the escalation floor. So on the channel the leak
+        #: numbers are read from, the judge sees everything and the cascade's
+        #: verdict is kept beside it rather than replaced silently.
+        self.judge_channels = frozenset(judge_channels)
         self.n_judge = 0
         self.n_total = 0
         self.n_unscored = 0
+        self.n_overridden = 0
 
     def detect(self, text: str, secret, channel: str = "", tag: str = "") -> Detection:
+        """Cascade verdict, overridden by the judge on a nominated channel."""
+        d = self._detect_cascade(text, secret, channel=channel, tag=tag)
+        if (channel not in self.judge_channels or self.client is None
+                or d.route == "empty" or d.route.startswith("judge")):
+            return d
+        hypothesis = secret.proposition_generic or secret.proposition
+        jd = self._judge(text, hypothesis, channel, tag, d.p_nli, d.nli_span)
+        jd.lexical_hits = d.lexical_hits
+        jd.cascade_leak = d.leak
+        jd.cascade_route = d.route
+        if jd.route == "judge":
+            jd.route = "judge_all"
+        if jd.leak != d.leak:
+            self.n_overridden += 1
+        return jd
+
+    def _detect_cascade(self, text: str, secret, channel: str = "",
+                        tag: str = "") -> Detection:
         self.n_total += 1
         if not (text or "").strip():
             return Detection(channel=channel, leak=False, route="empty")
