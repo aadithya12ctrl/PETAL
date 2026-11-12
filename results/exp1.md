@@ -1,17 +1,15 @@
 # Experiment 1: disclosure-use separability
 
-Runs: `exp1_mock_agent_a_seed20261109.jsonl`
-540 runs, 2400 detections, models ['agent_a'], seeds [20261109].
+Runs: `exp1_a.jsonl`
+420 runs, 1920 detections, models ['agent_a'], seeds [20261109].
 
 Every comparison is scenario-paired; the bootstrap resamples scenarios, not runs.
 
 ## Provenance
 
-**No pre-registration.** The testbed was not frozen before these runs, so nothing rules out scenario fixes made after seeing the results, which would be selection on the outcome. See `petal/prereg.py`.
+Testbed frozen 2026-11-10T17:59:33+00:00 at `b981621de102` (60 scenarios, git `a9274d15`), audited on `dev`. scenarios.json matches the frozen hash.
 
-Petal gap scan: `lexical`.
-
-**This is the lexical-gap petal.** Gaps were found by surface form while leaks are scored by entailment, so a paraphrase the form list does not cover passes the petal unmasked and is then counted against it. The petal's leak rate here is an upper bound on the mechanism and its delta a lower bound; the entailment-backed pass is `scripts/emit_gap_pairs.py`.
+Exclusion rule, fixed before the run: No scenario is excluded from the reported analysis. Scenarios that fail an audit check on the reported run are reported as failing, with the check and the count, and are kept in every aggregate. The only admissible exclusion is a run that produced no parseable FINAL line, which is a harness failure rather than a result; those are counted and reported separately.
 
 ## Detector validation
 
@@ -27,19 +25,17 @@ Leak is on the `m1` channel: the relay a defence is responsible for. `m1_draft` 
 
 | arm | utility | leak m1_draft | leak m1 | leak m2 | leak output |
 |---|---|---|---|---|---|
-| b1_privacy | 0.600 [0.600, 0.600] | 0.000 | 0.000 | 0.000 | 0.000 |
-| b4_restriction | 0.300 [0.300, 0.300] | 0.000 | 0.000 | 0.000 | 0.000 |
-| b6_placebo | 0.300 [0.300, 0.300] | 1.000 | 0.000 | 0.000 | 0.000 |
-| constraint_only | 0.300 [0.300, 0.300] | 0.000 | 0.000 | 0.000 | 0.000 |
-| decision_only | 0.600 [0.600, 0.600] | 0.000 | 0.000 | 0.000 | 0.000 |
-| drop | 0.300 [0.300, 0.300] | 0.000 | 0.000 | 0.000 | 0.000 |
-| full | 1.000 [1.000, 1.000] | 1.000 | 1.000 | 1.000 | 1.000 |
-| petal_text | 0.300 [0.300, 0.300] | 1.000 | 0.000 | 0.000 | 0.000 |
-| swap | 1.000 [1.000, 1.000] | 0.000 | 0.000 | 0.000 | 0.000 |
+| b1_privacy | 0.343 [0.310, 0.387] | 0.167 | 0.167 | 0.133 | 0.033 |
+| b4_restriction | 0.200 [0.160, 0.237] | 0.167 | 0.167 | 0.100 | 0.033 |
+| constraint_only | 0.320 [0.300, 0.350] | 0.200 | 0.200 | 0.167 | 0.000 |
+| decision_only | 0.370 [0.323, 0.423] | 0.367 | 0.367 | 0.300 | 0.100 |
+| drop | 0.310 [0.300, 0.330] | 0.000 | 0.000 | 0.000 | 0.000 |
+| full | 0.630 [0.563, 0.693] | 0.867 | 0.867 | 0.833 | 0.733 |
+| swap | 0.577 [0.497, 0.657] | 0.000 | 0.000 | 0.000 | 0.000 |
 
-- **Causal leak** Lambda = leak(full) - leak(swap) = **1.000**
+- **Causal leak** Lambda = leak(full) - leak(swap) = **0.867**
 - **Inference floor** Phi_floor = leak(drop) = **0.000**
-- *Positive control*: the Swap arm asserts **S'** at 1.000. If this were near zero the arm relayed nothing and its low rate on S would show specificity that was never tested.
+- *Positive control*: the Swap arm asserts **S'** at 0.933. If this were near zero the arm relayed nothing and its low rate on S would show specificity that was never tested.
 
 Both terms of Lambda are the rate of asserting *S*. The second is measured where S is absent, so it is the rate of asserting S anyway -- detector false positives plus confabulation -- and subtracting it is what separates a causal leak from an artefact. Only Lambda is what a relay defence can act on; the floor is unavoidable by any relay design and is subtracted, not charged to the defence.
 
@@ -47,7 +43,7 @@ Both terms of Lambda are the rate of asserting *S*. The second is measured where
 
 delta = (U_arm - U_drop) / (U_full - U_drop), as a ratio of means over scenario-paired bootstrap resamples. A ratio of means, not a mean of ratios: per scenario the denominator is often 0 and averaging per-scenario ratios would drop exactly the scenarios that carry no information about delta.
 
-**Ceiling, on delta's own scale: 0.429 [0.429, 0.429].** A perfect non-asserting answer scores 0.600 here on average (decision tasks: 1.0, since choosing correctly asserts nothing; content tasks: the permitted plus abstract tiers). Pushed through the identical estimator, that is the delta such an answer would earn.
+**Ceiling, on delta's own scale: 0.906 [0.756, 1.154].** A perfect non-asserting answer scores 0.600 here on average (decision tasks: 1.0, since choosing correctly asserts nothing; content tasks: the permitted plus abstract tiers). Pushed through the identical estimator, that is the delta such an answer would earn.
 
 This is *not* the `delta_ceiling` the scenario schema publishes. That one is normalised by the chance floor and a perfect 1.0, both design quantities; this one by the Drop and Full arms' measured utilities, as delta is. The two scales differ whenever U_drop != chance or U_full != 1.0, which is always, so dividing a measured delta by the schema's number misstates how much of the available room an arm reached.
 
@@ -55,12 +51,10 @@ This is *not* the `delta_ceiling` the scenario schema publishes. That one is nor
 
 | arm | delta [95% CI] | delta / ceiling [95% CI] |
 |---|---|---|
-| petal_text | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
-| constraint_only | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
-| decision_only | 0.429 [0.429, 0.429] | 1.000 [1.000, 1.000] |
-| b6_placebo | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
-| b1_privacy | 0.429 [0.429, 0.429] | 1.000 [1.000, 1.000] |
-| b4_restriction | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
+| constraint_only | 0.031 [0.000, 0.103] | 0.034 [0.000, 0.107] |
+| decision_only | 0.187 [0.050, 0.340] | 0.207 [0.048, 0.381] |
+| b1_privacy | 0.104 [0.000, 0.231] | 0.115 [0.000, 0.253] |
+| b4_restriction | -0.344 [-0.535, -0.210] | -0.379 [-0.540, -0.233] |
 
 ### Decision rule (PETAL_v2 §4.2.4)
 
@@ -68,9 +62,6 @@ Petal wins iff dU > kappa x dLeak + lambda x dLength, against the restriction-aw
 
 | kappa | dU [95% CI] | dLeak | dLength | threshold | petal wins? | wins at CI low? |
 |---|---|---|---|---|---|---|
-| 2.0 | 0.000 [0.000, 0.000] | +0.000 | +0.066 | +0.001 | no | no |
-| 1.0 | 0.000 [0.000, 0.000] | +0.000 | +0.066 | +0.001 | no | no |
-| 5.0 | 0.000 [0.000, 0.000] | +0.000 | +0.066 | +0.001 | no | no |
 
 ### Paired tests, Holm-corrected
 
@@ -80,25 +71,12 @@ One Holm family per use type, covering leak *and* utility tests together: the pa
 
 | test | p | p (Holm) | reject at 0.05 |
 |---|---|---|---|
-| leak constraint_only vs decision_only | 1.0000 | 1.0000 | no |
+| leak constraint_only vs decision_only | 0.2668 | 0.2668 | no |
 | leak constraint_only vs full | 0.0000 | 0.0000 | yes |
-| leak decision_only vs b4_restriction | 1.0000 | 1.0000 | no |
-| leak petal_text vs b1_privacy | 1.0000 | 1.0000 | no |
-| leak petal_text vs b4_restriction | 1.0000 | 1.0000 | no |
-| leak petal_text vs b6_placebo | 1.0000 | 1.0000 | no |
-| utility constraint_only vs decision_only | 0.0000 | 0.0000 | yes |
+| leak decision_only vs b4_restriction | 0.1094 | 0.2188 | no |
+| utility constraint_only vs decision_only | 0.0684 | 0.2051 | no |
 | utility constraint_only vs full | 0.0000 | 0.0000 | yes |
-| utility decision_only vs b4_restriction | 0.0000 | 0.0000 | yes |
-| utility petal_text vs b1_privacy | 0.0000 | 0.0000 | yes |
-| utility petal_text vs b4_restriction | 1.0000 | 1.0000 | no |
-| utility petal_text vs b6_placebo | 1.0000 | 1.0000 | no |
-
-### Power, stated honestly
-
-- n = 30 scenarios; sd of the paired difference = 0.000
-- smallest delta gap detectable at 80% power: **nan**
-
-The plan asserts v1 can only detect a delta gap of about 0.25 or more. That number is this one, and it depends on a variance that only a real run can supply -- so it is computed here rather than quoted.
+| utility decision_only vs b4_restriction | 0.0001 | 0.0005 | yes |
 
 ### Robustness: excluding the edited scenarios
 
@@ -106,10 +84,9 @@ Five restricted-category texts were reworded between the audit pilot and the fre
 
 | quantity | all 30 | excluding 6 edited (n=24) |
 |---|---|---|
-| delta/ceiling, `petal_text` | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
-| delta/ceiling, `constraint_only` | 0.000 [0.000, 0.000] | 0.000 [0.000, 0.000] |
-| delta/ceiling, `decision_only` | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
-| Lambda | 1.000 | 1.000 |
+| delta/ceiling, `constraint_only` | 0.034 [0.000, 0.107] | 0.043 [0.000, 0.136] |
+| delta/ceiling, `decision_only` | 0.207 [0.048, 0.381] | 0.261 [0.061, 0.478] |
+| Lambda | 0.867 | 0.833 |
 | Phi_floor | 0.000 | 0.000 |
 
 ---
@@ -122,19 +99,17 @@ Leak is on the `m1` channel: the relay a defence is responsible for. `m1_draft` 
 
 | arm | utility | leak m1_draft | leak m1 | leak m2 | leak output |
 |---|---|---|---|---|---|
-| b1_privacy | 1.000 [1.000, 1.000] | 0.000 | 0.000 | 0.000 | 0.000 |
-| b4_restriction | 0.300 [0.133, 0.467] | 0.000 | 0.000 | 0.000 | 0.000 |
-| b6_placebo | 1.000 [1.000, 1.000] | 1.000 | 0.000 | 0.000 | 0.000 |
-| constraint_only | 1.000 [1.000, 1.000] | 0.000 | 0.000 | 0.000 | 0.000 |
-| decision_only | 1.000 [1.000, 1.000] | 0.000 | 0.000 | 0.000 | 0.000 |
-| drop | 0.267 [0.133, 0.433] | 0.000 | 0.000 | 0.000 | 0.000 |
-| full | 1.000 [1.000, 1.000] | 1.000 | 1.000 | 1.000 | 0.000 |
-| petal_text | 1.000 [1.000, 1.000] | 1.000 | 0.000 | 0.000 | 0.000 |
-| swap | 1.000 [1.000, 1.000] | 0.000 | 0.000 | 0.000 | 0.000 |
+| b1_privacy | 0.700 [0.533, 0.867] | 0.033 | 0.033 | 0.033 | 0.033 |
+| b4_restriction | 0.267 [0.100, 0.433] | 0.033 | 0.033 | 0.000 | 0.033 |
+| constraint_only | 0.800 [0.667, 0.933] | 0.033 | 0.033 | 0.033 | 0.033 |
+| decision_only | 0.833 [0.700, 0.967] | 0.133 | 0.133 | 0.133 | 0.100 |
+| drop | 0.333 [0.167, 0.500] | 0.000 | 0.000 | 0.000 | 0.000 |
+| full | 0.767 [0.600, 0.900] | 0.767 | 0.767 | 0.633 | 0.533 |
+| swap | 0.600 [0.433, 0.767] | 0.000 | 0.000 | 0.033 | 0.000 |
 
-- **Causal leak** Lambda = leak(full) - leak(swap) = **1.000**
+- **Causal leak** Lambda = leak(full) - leak(swap) = **0.767**
 - **Inference floor** Phi_floor = leak(drop) = **0.000**
-- *Positive control*: the Swap arm asserts **S'** at 1.000. If this were near zero the arm relayed nothing and its low rate on S would show specificity that was never tested.
+- *Positive control*: the Swap arm asserts **S'** at 0.700. If this were near zero the arm relayed nothing and its low rate on S would show specificity that was never tested.
 
 Both terms of Lambda are the rate of asserting *S*. The second is measured where S is absent, so it is the rate of asserting S anyway -- detector false positives plus confabulation -- and subtracting it is what separates a causal leak from an artefact. Only Lambda is what a relay defence can act on; the floor is unavoidable by any relay design and is subtracted, not charged to the defence.
 
@@ -142,7 +117,7 @@ Both terms of Lambda are the rate of asserting *S*. The second is measured where
 
 delta = (U_arm - U_drop) / (U_full - U_drop), as a ratio of means over scenario-paired bootstrap resamples. A ratio of means, not a mean of ratios: per scenario the denominator is often 0 and averaging per-scenario ratios would drop exactly the scenarios that carry no information about delta.
 
-**Ceiling, on delta's own scale: 1.000 [1.000, 1.000].** A perfect non-asserting answer scores 1.000 here on average (decision tasks: 1.0, since choosing correctly asserts nothing; content tasks: the permitted plus abstract tiers). Pushed through the identical estimator, that is the delta such an answer would earn.
+**Ceiling, on delta's own scale: 1.538 [1.167, 2.500].** A perfect non-asserting answer scores 1.000 here on average (decision tasks: 1.0, since choosing correctly asserts nothing; content tasks: the permitted plus abstract tiers). Pushed through the identical estimator, that is the delta such an answer would earn.
 
 This is *not* the `delta_ceiling` the scenario schema publishes. That one is normalised by the chance floor and a perfect 1.0, both design quantities; this one by the Drop and Full arms' measured utilities, as delta is. The two scales differ whenever U_drop != chance or U_full != 1.0, which is always, so dividing a measured delta by the schema's number misstates how much of the available room an arm reached.
 
@@ -150,12 +125,10 @@ This is *not* the `delta_ceiling` the scenario schema publishes. That one is nor
 
 | arm | delta [95% CI] | delta / ceiling [95% CI] |
 |---|---|---|
-| petal_text | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
-| constraint_only | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
-| decision_only | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
-| b6_placebo | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
-| b1_privacy | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
-| b4_restriction | 0.045 [-0.333, 0.320] | 0.045 [-0.333, 0.320] |
+| constraint_only | 1.077 [0.700, 1.714] | 0.700 [0.450, 0.900] |
+| decision_only | 1.154 [0.889, 1.714] | 0.750 [0.545, 0.929] |
+| b1_privacy | 0.846 [0.417, 1.429] | 0.550 [0.250, 0.778] |
+| b4_restriction | -0.154 [-0.833, 0.167] | -0.100 [-0.412, 0.120] |
 
 ### Decision rule (PETAL_v2 §4.2.4)
 
@@ -163,9 +136,6 @@ Petal wins iff dU > kappa x dLeak + lambda x dLength, against the restriction-aw
 
 | kappa | dU [95% CI] | dLeak | dLength | threshold | petal wins? | wins at CI low? |
 |---|---|---|---|---|---|---|
-| 2.0 | 0.700 [0.533, 0.867] | +0.000 | +0.052 | +0.001 | yes | yes |
-| 1.0 | 0.700 [0.533, 0.867] | +0.000 | +0.052 | +0.001 | yes | yes |
-| 5.0 | 0.700 [0.533, 0.867] | +0.000 | +0.052 | +0.001 | yes | yes |
 
 ### Paired tests, Holm-corrected
 
@@ -175,18 +145,12 @@ One Holm family per use type, covering leak *and* utility tests together: the pa
 
 | test | p | p (Holm) | reject at 0.05 |
 |---|---|---|---|
-| leak constraint_only vs decision_only | 1.0000 | 1.0000 | no |
+| leak constraint_only vs decision_only | 0.3750 | 1.0000 | no |
 | leak constraint_only vs full | 0.0000 | 0.0000 | yes |
-| leak decision_only vs b4_restriction | 1.0000 | 1.0000 | no |
-| leak petal_text vs b1_privacy | 1.0000 | 1.0000 | no |
-| leak petal_text vs b4_restriction | 1.0000 | 1.0000 | no |
-| leak petal_text vs b6_placebo | 1.0000 | 1.0000 | no |
-| utility constraint_only vs decision_only | 1.0000 | 1.0000 | no |
-| utility constraint_only vs full | 1.0000 | 1.0000 | no |
-| utility decision_only vs b4_restriction | 0.0000 | 0.0001 | yes |
-| utility petal_text vs b1_privacy | 1.0000 | 1.0000 | no |
-| utility petal_text vs b4_restriction | 0.0000 | 0.0001 | yes |
-| utility petal_text vs b6_placebo | 1.0000 | 1.0000 | no |
+| leak decision_only vs b4_restriction | 0.3750 | 1.0000 | no |
+| utility constraint_only vs decision_only | 0.6547 | 1.0000 | no |
+| utility constraint_only vs full | 0.7055 | 1.0000 | no |
+| utility decision_only vs b4_restriction | 0.0000 | 0.0002 | yes |
 
 ### Decision-implied leakage
 
@@ -212,9 +176,9 @@ Two adversaries, because the gap between them is the finding:
 | fraction of S implied by the answer | **30.3%** | **61.3%** |
 | adversary names the category | 0.250 | 0.500 |
 | chance | 0.083 | 0.167 |
-| from answers the models actually gave (n=60) | 0.500 | 0.500 |
+| from answers the models actually gave (n=27) | 0.463 | 0.463 |
 
-Note the empirical row sits near the generator-aware column under *both* priors. The uninformed adversary's MAP figure of 0.250 is an average over answers that an ambiguous category could have produced -- but the builder never picks an ambiguous category, so no such answer is ever actually seen. On the answers the models really gave, even the uninformed adversary recovers S at 0.500. The uninformed column is a floor on a case that does not arise; the generator-aware column is what the testbed does.
+Note the empirical row sits near the generator-aware column under *both* priors. The uninformed adversary's MAP figure of 0.250 is an average over answers that an ambiguous category could have produced -- but the builder never picks an ambiguous category, so no such answer is ever actually seen. On the answers the models really gave, even the uninformed adversary recovers S at 0.463. The uninformed column is a floor on a case that does not arise; the generator-aware column is what the testbed does.
 
 | domain | I, uninformed | I, generator-aware | recovery, generator-aware |
 |---|---|---|---|
@@ -237,15 +201,13 @@ The relay detector scores **assertion**. A relay that says "Option B" entails no
 
 | arm | utility | assertion leak (m1) | recovers S from the relay | bits (LB) | recovers S from the answer |
 |---|---|---|---|---|---|
-| full | 1.000 | 1.000 | 0.900 | 1.238 | 0.500 |
-| swap | 1.000 | 0.000 | 0.033 | 0.000 | 0.000 |
-| b1_privacy | 1.000 | 0.000 | 0.200 | 0.000 | 0.500 |
-| b6_placebo | 1.000 | 0.000 | 0.200 | 0.000 | 0.500 |
-| petal_text | 1.000 | 0.000 | 0.167 | 0.000 | 0.500 |
-| constraint_only | 1.000 | 0.000 | 0.167 | 0.000 | 0.500 |
-| decision_only | 1.000 | 0.000 | 0.200 | 0.000 | 0.500 |
-| b4_restriction | 0.300 | 0.000 | 0.200 | 0.000 | 0.150 |
-| drop | 0.267 | 0.000 | 0.233 | 0.000 | 0.133 |
+| decision_only | 0.833 | 0.133 | 0.300 | 0.000 | 0.463 |
+| constraint_only | 0.800 | 0.033 | 0.200 | 0.000 | 0.462 |
+| full | 0.767 | 0.767 | 0.600 | 0.283 | 0.460 |
+| b1_privacy | 0.700 | 0.033 | 0.200 | 0.000 | 0.438 |
+| swap | 0.600 | 0.000 | 0.067 | 0.000 | 0.077 |
+| drop | 0.333 | 0.000 | 0.233 | 0.000 | 0.192 |
+| b4_restriction | 0.267 | 0.033 | 0.300 | 0.000 | 0.364 |
 
 #### The relay-granularity gradient (H7)
 
@@ -265,15 +227,13 @@ The figures above assume the relay carries *only* what its arm is named for. A r
 
 | arm | computed floor | names a condition | certainty gained (bits) | about the true S (bits) | recovers S | learned adversary (bits, LB) |
 |---|---|---|---|---|---|---|
-| full | 2.585 bits | 1.000 | 2.585 | **1.911** | 1.000 | 1.238 |
-| constraint_only | 1.585 bits | 0.000 | 1.585 | **0.126** | 0.500 | 0.000 |
-| decision_only | 1.585 bits | 0.000 | 1.585 | **0.126** | 0.500 | 0.000 |
-| petal_text | - | 0.000 | 1.585 | **0.126** | 0.500 | 0.000 |
-| b6_placebo | - | 0.000 | 1.585 | **0.126** | 0.500 | 0.000 |
-| b4_restriction | - | 0.000 | 1.585 | **0.000** | 0.150 | 0.000 |
-| b1_privacy | - | 0.000 | 1.585 | **0.126** | 0.500 | 0.000 |
-| drop | - | 0.000 | 1.585 | **0.000** | 0.133 | 0.000 |
-| swap | - | 1.000 | 2.585 | **0.000** | 0.000 | 0.000 |
+| full | 2.585 bits | 0.767 | 2.352 | **1.081** | 0.874 | 0.283 |
+| constraint_only | 1.585 bits | 0.033 | 1.618 | **0.088** | 0.479 | 0.000 |
+| decision_only | 1.585 bits | 0.100 | 1.685 | **0.171** | 0.517 | 0.000 |
+| b4_restriction | - | 0.033 | 1.618 | **0.032** | 0.385 | 0.000 |
+| b1_privacy | - | 0.033 | 1.618 | **0.088** | 0.456 | 0.000 |
+| drop | - | 0.000 | 1.585 | **0.000** | 0.192 | 0.000 |
+| swap | - | 0.700 | 2.285 | **0.000** | 0.023 | 0.000 |
 
 **Disclosed (bits) is the headline.** The relay is read for what it names -- a condition, by surface form -- and the exact posterior is applied: naming a condition identifies it; naming none leaves the adversary with what the answer implies, measured per arm rather than assumed.
 
@@ -292,22 +252,14 @@ So report this beside delta. A delta near 1.0 on decision tasks means the agent 
 
 It is a property of the construction, not of the models: the scenarios were built so that S determines the answer, and that is what makes delta measurable at all. A testbed where S only *shifts* the answer distribution would have a lower floor and a weaker delta; the trade is stated here rather than hidden.
 
-### Power, stated honestly
-
-- n = 30 scenarios; sd of the paired difference = 0.466
-- smallest delta gap detectable at 80% power: **0.325**
-
-The plan asserts v1 can only detect a delta gap of about 0.25 or more. That number is this one, and it depends on a variance that only a real run can supply -- so it is computed here rather than quoted.
-
 ### Robustness: excluding the edited scenarios
 
 Five restricted-category texts were reworded between the audit pilot and the freeze, each fixing a contradiction statable from the scenario text alone (every diff is in `results/prefreeze_rule.md`). The edits were to *categories*, so they touch **6 of this panel's 30 scenarios** -- not only the ones that failed the audit, which would have been the narrower and more flattering set to exclude. This check was pre-registered before the freeze.
 
 | quantity | all 30 | excluding 6 edited (n=24) |
 |---|---|---|
-| delta/ceiling, `petal_text` | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
-| delta/ceiling, `constraint_only` | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
-| delta/ceiling, `decision_only` | 1.000 [1.000, 1.000] | 1.000 [1.000, 1.000] |
-| Lambda | 1.000 | 1.000 |
+| delta/ceiling, `constraint_only` | 0.700 [0.450, 0.900] | 0.687 [0.400, 0.905] |
+| delta/ceiling, `decision_only` | 0.750 [0.545, 0.929] | 0.750 [0.529, 0.941] |
+| Lambda | 0.767 | 0.792 |
 | Phi_floor | 0.000 | 0.000 |
 
