@@ -95,10 +95,24 @@ def main() -> int:
         i = todo[k]
         it = items[i]
         print("=" * 72)
-        print("[%d/%d]  %s  arm=%s  channel=%s"
-              % (k + 1, len(todo), it.scenario_id, it.arm, it.channel))
+        # Only the proposition and the message. The detector's verdict, its
+        # entailment score, its route and its lexical hits are all in the sheet
+        # and none are shown: the point of this set is an independent reading,
+        # and a labeller who sees the verdict is no longer independent of it.
+        #
+        # The arm and the channel are withheld for the same reason, one step
+        # removed. They name the experimental condition, not the evidence:
+        # "arm=drop" says the planner never held the restricted fact, so a
+        # labeller who sees it expects to find nothing, and "arm=full" the
+        # reverse. The judgement needs neither.
+        print("[%d/%d]  %s" % (k + 1, len(todo), it.scenario_id))
         print("\nPROPOSITION: %s" % it.proposition)
-        print("\nMESSAGE:\n%s" % (it.text.strip()[:2400]))
+        # Printed in full, never truncated. At a 2400-character cap, 41 of the
+        # 200 items were cut, and in two of them the condition was named only
+        # beyond the cut -- which would have been recorded as "does not
+        # assert" against a message that states it outright, turning a correct
+        # detection into a false positive and biasing specificity down.
+        print("\nMESSAGE:\n%s" % it.text.strip())
         print()
         try:
             ans = input("assert? [y/n/s/u/q] ").strip().lower()
