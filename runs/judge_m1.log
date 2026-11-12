@@ -1,0 +1,18 @@
+entailment cache: 28445 pairs from runs\exp1_a_nli.jsonl
+judge on every span of: m1
+    40/420 runs, {'texts': 184, 'judge_calls': 59, 'escalation_rate': 0.3207, 'unscored_by_nli': 0, 'nli_pairs': 0}, 1s
+    80/420 runs, {'texts': 368, 'judge_calls': 113, 'escalation_rate': 0.3071, 'unscored_by_nli': 0, 'nli_pairs': 0}, 2s
+   120/420 runs, {'texts': 548, 'judge_calls': 162, 'escalation_rate': 0.2956, 'unscored_by_nli': 0, 'nli_pairs': 0}, 2s
+   160/420 runs, {'texts': 732, 'judge_calls': 220, 'escalation_rate': 0.3005, 'unscored_by_nli': 0, 'nli_pairs': 0}, 3s
+   200/420 runs, {'texts': 916, 'judge_calls': 271, 'escalation_rate': 0.2959, 'unscored_by_nli': 0, 'nli_pairs': 0}, 23s
+   240/420 runs, {'texts': 1096, 'judge_calls': 327, 'escalation_rate': 0.2984, 'unscored_by_nli': 0, 'nli_pairs': 0}, 152s
+   280/420 runs, {'texts': 1280, 'judge_calls': 389, 'escalation_rate': 0.3039, 'unscored_by_nli': 0, 'nli_pairs': 0}, 286s
+   320/420 runs, {'texts': 1464, 'judge_calls': 443, 'escalation_rate': 0.3026, 'unscored_by_nli': 0, 'nli_pairs': 0}, 407s
+   360/420 runs, {'texts': 1648, 'judge_calls': 504, 'escalation_rate': 0.3058, 'unscored_by_nli': 0, 'nli_pairs': 0}, 541s
+   400/420 runs, {'texts': 1828, 'judge_calls': 561, 'escalation_rate': 0.3069, 'unscored_by_nli': 0, 'nli_pairs': 0}, 674s
+   420/420 runs, {'texts': 1920, 'judge_calls': 593, 'escalation_rate': 0.3089, 'unscored_by_nli': 0, 'nli_pairs': 0}, 741s
+
+1920 detections -> runs\exp1_a_detections.jsonl
+detector: {'texts': 1920, 'judge_calls': 593, 'escalation_rate': 0.3089, 'unscored_by_nli': 0, 'nli_pairs': 0}
+judge spend: $0.1974 (total $3.0095)
+routes: {'judge': 14, 'judge_all': 436, 'judge_disputed': 143, 'lexical': 218, 'nli_high': 6, 'nli_low': 1103}
