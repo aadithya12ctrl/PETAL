@@ -1,0 +1,16 @@
+{
+  "reader": "exp1_a_detections_cascade.jsonl",
+  "n_labelled": 80,
+  "n_strata_covered": 25,
+  "n_strata_in_frame": 26,
+  "sensitivity": 0.9969165542493738,
+  "sensitivity_boot_lo": 0.9909365558912386,
+  "sensitivity_boot_hi": 1.0,
+  "sensitivity_lower_bound": 0.6887810675517512,
+  "specificity": 0.9878579093014062,
+  "specificity_boot_lo": 0.9755934470076897,
+  "specificity_boot_hi": 1.0,
+  "n_boot": 10000,
+  "seed": 0,
+  "note": "The bootstrap interval cannot express a miss that was never observed, so sensitivity_lower_bound -- the Clopper-Pearson worst case the labels do not rule out -- is the figure to quote as a bound."
+}
