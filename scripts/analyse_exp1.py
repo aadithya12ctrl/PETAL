@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from petal import analysis as A
 from petal import paths
 from petal.config import Config, default_config
-from petal.labelling import read_sheet, validation_from_sheet
+from petal.labelling import (confusion_against, read_sheet, validation_from_sheet)
 
 PAIRS = [("petal_text", "b6_placebo"), ("petal_text", "b1_privacy"),
          ("petal_text", "b4_restriction"), ("decision_only", "b4_restriction"),
@@ -32,6 +32,11 @@ def main() -> int:
     ap.add_argument("--runs", nargs="+", required=True)
     ap.add_argument("--detections", nargs="*", default=None)
     ap.add_argument("--labels", default="", help="hand-label sheet for Rogan-Gladen")
+    ap.add_argument("--label-frame", default="",
+                    help="the detections file the label sheet was SAMPLED from, "
+                         "if the detector has been re-run since. The sampling "
+                         "weights belong to that frame's strata; the reader "
+                         "being corrected is the one in --detections.")
     ap.add_argument("--out", default="")
     args = ap.parse_args()
 
@@ -64,13 +69,37 @@ def main() -> int:
                         if Path(d).exists()
                         for l in Path(d).read_text(encoding="utf-8").splitlines()
                         if l.strip()]
-            val = validation_from_sheet(read_sheet(Path(args.labels)), det_rows)
-            val_note = ("Validation set: n=%d labelled, design-weighted to the "
-                        "%d-detection frame; Se=%.3f, Sp=%.3f, Youden=%.3f."
-                        % (sum(1 for it in read_sheet(Path(args.labels))
-                               if it.label is not None),
-                           len(det_rows), val.sensitivity, val.specificity,
-                           val.youden))
+            sheet = read_sheet(Path(args.labels))
+            n_lab = sum(1 for it in sheet if it.label is not None)
+            if args.label_frame:
+                # The sheet was drawn on an older detector, so the weights come
+                # from that frame's strata while the reader being corrected is
+                # the current one. Same items, same labels, same design; only
+                # the predicted verdict is swapped. Doing it the other way --
+                # weighting against the new frame -- mixes two classifiers and
+                # yields an Sp belonging to neither, which is how this went
+                # wrong once already.
+                frame = [json.loads(l) for l in Path(args.label_frame)
+                         .read_text(encoding="utf-8").splitlines() if l.strip()]
+                verdicts = {d["uid"]: bool(d["leak"]) for d in det_rows}
+                val = confusion_against(sheet, frame, verdicts)
+                base = validation_from_sheet(sheet, frame)
+                val_note = (
+                    "Validation set: n=%d labelled, design-weighted to the "
+                    "%d-detection sampling frame (`%s`); Se=%.3f, Sp=%.3f, "
+                    "Youden=%.3f for the reader that produced the rates above. "
+                    "The detector the sheet was sampled on scores Se=%.3f, "
+                    "Sp=%.3f on the same items."
+                    % (n_lab, len(frame), Path(args.label_frame).name,
+                       val.sensitivity, val.specificity, val.youden,
+                       base.sensitivity, base.specificity))
+            else:
+                val = validation_from_sheet(sheet, det_rows)
+                val_note = ("Validation set: n=%d labelled, design-weighted to "
+                            "the %d-detection frame; Se=%.3f, Sp=%.3f, "
+                            "Youden=%.3f."
+                            % (n_lab, len(det_rows), val.sensitivity,
+                               val.specificity, val.youden))
         except (OSError, ValueError) as e:
             val_note = "Could not use %s: %s" % (args.labels, e)
 

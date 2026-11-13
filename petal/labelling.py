@@ -131,6 +131,10 @@ def read_sheet(path: Path) -> list[LabelItem]:
     return out
 
 
+class FrameMismatch(ValueError):
+    """The frame was made by a different detector than the sheet was sampled on."""
+
+
 def cell_of(it: "LabelItem") -> tuple[str, bool]:
     """The stratum an item was sampled from: (arm, detector verdict)."""
     return (str(it.arm), bool(it.detector_leak))
@@ -146,6 +150,29 @@ def sampling_weights(items: list["LabelItem"],
     sheet. A cell present in the sheet but absent from the frame is a bug and
     raises rather than silently getting weight 1.
     """
+    frame = list(frame)
+    # The sheet records the detector's verdict *as it was when the sheet was
+    # drawn*. If the detector has been re-run since -- a judge added, a
+    # threshold moved -- the frame's verdicts are a different classifier's, and
+    # the strata no longer line up with the ones the sample was allocated over.
+    # Weighting the sheet against that frame silently mixes two classifiers.
+    # This cost us once: a sheet drawn on the 3-stage cascade was weighted
+    # against the judge-augmented pass, and the Sp it produced belonged to
+    # neither reader.
+    by_uid = {d.get("uid"): d for d in frame if d.get("uid")}
+    checked = [it for it in items if it.label is not None and it.uid in by_uid]
+    if checked:
+        disagree = sum(1 for it in checked
+                       if bool(it.detector_leak) != bool(by_uid[it.uid]["leak"]))
+        if disagree:
+            raise FrameMismatch(
+                "%d of %d labelled items carry a different verdict in the sheet "
+                "than in the frame, so the frame was produced by a different "
+                "detector configuration than the one the sheet was sampled on. "
+                "Supply the detections file the sheet was drawn from, and "
+                "evaluate any newer reader with `confusion_against`, which "
+                "keeps the sampling design and swaps only the verdict."
+                % (disagree, len(checked)))
     pop: dict[tuple[str, bool], int] = {}
     for d in frame:
         k = (str(d.get("arm")), bool(d.get("leak")))
@@ -164,6 +191,34 @@ def sampling_weights(items: list["LabelItem"],
                 "so its sampling weights cannot be recovered" % (k,))
         out[k] = pop[k] / float(n)
     return out
+
+
+def confusion_against(items: list["LabelItem"],
+                      frame: Iterable[dict[str, Any]],
+                      verdicts: dict[str, bool]) -> Validation:
+    """Se/Sp for *another* reader, on the sheet's own sampling design.
+
+    The weights belong to the design -- which cells were over-sampled, and by
+    how much -- and the design does not change when a different reader is
+    evaluated on the same items. So the strata and the frame stay the ones the
+    sheet was drawn on, and only the predicted label is swapped for the new
+    reader's, looked up by uid.
+
+    This is how the judge-augmented detector is compared with the cascade that
+    the sheet was sampled on: same items, same hand labels, same weights, two
+    sets of verdicts. Comparing them on *different* designs would confound the
+    reader with the sampling.
+    """
+    done = [it for it in items if it.label is not None]
+    missing = [it.uid for it in done if it.uid not in verdicts]
+    if missing:
+        raise ValueError("no verdict supplied for %d labelled item(s), first %r"
+                         % (len(missing), missing[0]))
+    w = sampling_weights(items, frame)
+    return Validation.from_weighted_labels(
+        [bool(verdicts[it.uid]) for it in done],
+        [bool(it.label) for it in done],
+        [w[cell_of(it)] for it in done])
 
 
 def validation_from_sheet(items: list[LabelItem],

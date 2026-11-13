@@ -13,7 +13,7 @@ Exclusion rule, fixed before the run: No scenario is excluded from the reported 
 
 ## Detector validation
 
-Validation set: n=9 labelled, design-weighted to the 1920-detection frame; Se=1.000, Sp=0.963, Youden=0.963.
+Validation set: n=50 labelled, design-weighted to the 1920-detection sampling frame (`exp1_a_detections_cascade.jsonl`); Se=0.900, Sp=0.956, Youden=0.857 for the reader that produced the rates above. The detector the sheet was sampled on scores Se=1.000, Sp=0.984 on the same items.
 
 ---
 
@@ -84,13 +84,13 @@ CIs resample the trace set *and* the validation set; holding Se and Sp fixed giv
 
 | arm | observed | corrected [95% CI] |
 |---|---|---|
-| b1_privacy | 0.067 | 0.031 [0.000, 0.137] |
-| b4_restriction | 0.067 | 0.031 [0.000, 0.136] |
-| constraint_only | 0.100 | 0.065 [0.000, 0.181] |
-| decision_only | 0.133 | 0.100 [0.000, 0.239] |
+| b1_privacy | 0.067 | 0.027 [0.000, 0.145] |
+| b4_restriction | 0.067 | 0.027 [0.000, 0.145] |
+| constraint_only | 0.100 | 0.066 [0.000, 0.197] |
+| decision_only | 0.133 | 0.105 [0.000, 0.261] |
 | drop | 0.000 | 0.000 [0.000, 0.000] |
-| full | 0.833 | 0.827 [0.686, 0.965] |
-| swap | 0.067 | 0.031 [0.000, 0.137] |
+| full | 0.833 | 0.922 [0.754, 1.000] |
+| swap | 0.067 | 0.027 [0.000, 0.146] |
 
 ### Paired tests, Holm-corrected
 
@@ -187,12 +187,12 @@ CIs resample the trace set *and* the validation set; holding Se and Sp fixed giv
 
 | arm | observed | corrected [95% CI] |
 |---|---|---|
-| b1_privacy | 0.167 | 0.135 [0.002, 0.279] |
-| b4_restriction | 0.067 | 0.031 [0.000, 0.136] |
-| constraint_only | 0.267 | 0.239 [0.075, 0.412] |
-| decision_only | 0.200 | 0.169 [0.031, 0.335] |
-| drop | 0.167 | 0.135 [0.002, 0.278] |
-| full | 0.833 | 0.827 [0.686, 0.965] |
+| b1_privacy | 0.167 | 0.144 [0.000, 0.306] |
+| b4_restriction | 0.067 | 0.027 [0.000, 0.145] |
+| constraint_only | 0.267 | 0.260 [0.092, 0.455] |
+| decision_only | 0.200 | 0.183 [0.026, 0.363] |
+| drop | 0.167 | 0.144 [0.000, 0.305] |
+| full | 0.833 | 0.922 [0.751, 1.000] |
 | swap | 0.000 | 0.000 [0.000, 0.000] |
 
 ### Paired tests, Holm-corrected
