@@ -1,7 +1,7 @@
 # Experiment 1: disclosure-use separability
 
 Runs: `exp1_b.jsonl`
-420 runs, 0 detections, models ['agent_b'], seeds [20261109].
+420 runs, 1920 detections, models ['agent_b'], seeds [20261109].
 
 Every comparison is scenario-paired; the bootstrap resamples scenarios, not runs.
 
@@ -25,23 +25,34 @@ Leak is on the `m1` channel: the relay a defence is responsible for. `m1_draft` 
 
 | arm | utility | leak m1_draft | leak m1 | leak m2 | leak output |
 |---|---|---|---|---|---|
-| b1_privacy | 0.320 [0.300, 0.350] | - | - | - | - |
-| b4_restriction | 0.320 [0.300, 0.350] | - | - | - | - |
-| constraint_only | 0.313 [0.290, 0.347] | - | - | - | - |
-| decision_only | 0.367 [0.320, 0.430] | - | - | - | - |
-| drop | 0.317 [0.293, 0.350] | - | - | - | - |
-| full | 0.517 [0.447, 0.587] | - | - | - | - |
-| swap | 0.500 [0.427, 0.567] | - | - | - | - |
+| b1_privacy | 0.320 [0.300, 0.350] | 0.000 | 0.000 | 0.000 | 0.000 |
+| b4_restriction | 0.320 [0.300, 0.350] | 0.000 | 0.000 | 0.000 | 0.000 |
+| constraint_only | 0.313 [0.290, 0.347] | 0.000 | 0.000 | 0.000 | 0.000 |
+| decision_only | 0.367 [0.320, 0.430] | 0.067 | 0.067 | 0.067 | 0.067 |
+| drop | 0.317 [0.293, 0.350] | 0.000 | 0.000 | 0.000 | 0.000 |
+| full | 0.517 [0.447, 0.587] | 0.600 | 0.600 | 0.600 | 0.533 |
+| swap | 0.500 [0.427, 0.567] | 0.000 | 0.000 | 0.000 | 0.000 |
 
-- **Causal leak** Lambda = leak(full) - leak(swap) = **n/a**
-- **Inference floor** Phi_floor = leak(drop) = **n/a**
-- *Positive control*: the Swap arm asserts **S'** at n/a. If this were near zero the arm relayed nothing and its low rate on S would show specificity that was never tested.
+- **Causal leak** Lambda = leak(full) - leak(swap) = **0.600**
+- **Inference floor** Phi_floor = leak(drop) = **0.000**
+- *Positive control*: the Swap arm asserts **S'** at 0.467. If this were near zero the arm relayed nothing and its low rate on S would show specificity that was never tested.
 
 Both terms of Lambda are the rate of asserting *S*. The second is measured where S is absent, so it is the rate of asserting S anyway -- detector false positives plus confabulation -- and subtracting it is what separates a causal leak from an artefact. Only Lambda is what a relay defence can act on; the floor is unavoidable by any relay design and is subtracted, not charged to the defence.
 
 **These are assertion rates, not disclosure rates.** The detector asks whether the text states, paraphrases or clearly implies the restricted proposition. It does not ask how much an adversary reading the text learns: a relay that asserts nothing can still narrow S to one of two conditions, and the arms here do. The inferential section below measures that separately, and the two must be reported together -- 'cut assertion from X to Y' is the honest claim, 'cut disclosure' is not.
 
 **Detector provenance.** `m1_draft` cascade only, `m1` cascade only, `m2` cascade only, `output` cascade only. A cascade-only rate is a lower bound: its entailment stage scores a plain paraphrase at 0.001, so a relay that discloses S without naming it reads clean. That includes `Phi_floor` whenever the Drop arm's channel was not judge-read.
+
+#### Pre-registered ordering H5
+
+Fixed before the arm was run: `full` > `constraint_only` >= `decision_only` on relay assertion of S.
+
+| inequality | observed | holds? |
+|---|---|---|
+| `full` > `constraint_only` | 0.600 > 0.000 | yes |
+| `constraint_only` <= `decision_only` | 0.000 vs 0.067 | yes |
+
+**Verdict: supported.** Both inequalities hold. The paired test on the second is 0 vs 2 discordant pairs, exact McNemar p = 0.500, so the ordering is consistent with the data without being established by it.
 
 ### Separability delta
 
@@ -75,9 +86,12 @@ One Holm family per use type, covering leak *and* utility tests together: the pa
 
 | test | p | p (Holm) | reject at 0.05 |
 |---|---|---|---|
-| utility constraint_only vs decision_only | 0.0422 | 0.0843 | no |
-| utility constraint_only vs full | 0.0002 | 0.0005 | yes |
-| utility decision_only vs b4_restriction | 0.1308 | 0.1308 | no |
+| leak constraint_only vs decision_only | 0.5000 | 1.0000 | no |
+| leak constraint_only vs full | 0.0000 | 0.0000 | yes |
+| leak decision_only vs b4_restriction | 0.5000 | 1.0000 | no |
+| utility constraint_only vs decision_only | 0.0422 | 0.1687 | no |
+| utility constraint_only vs full | 0.0002 | 0.0009 | yes |
+| utility decision_only vs b4_restriction | 0.1308 | 0.3924 | no |
 
 ### Robustness: excluding the edited scenarios
 
@@ -87,8 +101,8 @@ Five restricted-category texts were reworded between the audit pilot and the fre
 |---|---|---|
 | delta/ceiling, `constraint_only` | -0.012 [-0.127, 0.095] | -0.014 [-0.156, 0.110] |
 | delta/ceiling, `decision_only` | 0.176 [-0.014, 0.402] | 0.214 [-0.016, 0.479] |
-| Lambda | n/a | n/a |
-| Phi_floor | n/a | n/a |
+| Lambda | 0.600 | 0.583 |
+| Phi_floor | 0.000 | 0.000 |
 
 ---
 
@@ -100,23 +114,34 @@ Leak is on the `m1` channel: the relay a defence is responsible for. `m1_draft` 
 
 | arm | utility | leak m1_draft | leak m1 | leak m2 | leak output |
 |---|---|---|---|---|---|
-| b1_privacy | 0.567 [0.400, 0.733] | - | - | - | - |
-| b4_restriction | 0.467 [0.300, 0.633] | - | - | - | - |
-| constraint_only | 0.900 [0.800, 1.000] | - | - | - | - |
-| decision_only | 0.533 [0.367, 0.700] | - | - | - | - |
-| drop | 0.300 [0.133, 0.467] | - | - | - | - |
-| full | 0.500 [0.333, 0.667] | - | - | - | - |
-| swap | 0.400 [0.233, 0.567] | - | - | - | - |
+| b1_privacy | 0.567 [0.400, 0.733] | 0.000 | 0.000 | 0.000 | 0.000 |
+| b4_restriction | 0.467 [0.300, 0.633] | 0.033 | 0.033 | 0.000 | 0.000 |
+| constraint_only | 0.900 [0.800, 1.000] | 0.000 | 0.000 | 0.000 | 0.000 |
+| decision_only | 0.533 [0.367, 0.700] | 0.033 | 0.033 | 0.033 | 0.033 |
+| drop | 0.300 [0.133, 0.467] | 0.000 | 0.000 | 0.000 | 0.000 |
+| full | 0.500 [0.333, 0.667] | 0.100 | 0.100 | 0.100 | 0.067 |
+| swap | 0.400 [0.233, 0.567] | 0.000 | 0.000 | 0.000 | 0.000 |
 
-- **Causal leak** Lambda = leak(full) - leak(swap) = **n/a**
-- **Inference floor** Phi_floor = leak(drop) = **n/a**
-- *Positive control*: the Swap arm asserts **S'** at n/a. If this were near zero the arm relayed nothing and its low rate on S would show specificity that was never tested.
+- **Causal leak** Lambda = leak(full) - leak(swap) = **0.100**
+- **Inference floor** Phi_floor = leak(drop) = **0.000**
+- *Positive control*: the Swap arm asserts **S'** at 0.167. If this were near zero the arm relayed nothing and its low rate on S would show specificity that was never tested.
 
 Both terms of Lambda are the rate of asserting *S*. The second is measured where S is absent, so it is the rate of asserting S anyway -- detector false positives plus confabulation -- and subtracting it is what separates a causal leak from an artefact. Only Lambda is what a relay defence can act on; the floor is unavoidable by any relay design and is subtracted, not charged to the defence.
 
 **These are assertion rates, not disclosure rates.** The detector asks whether the text states, paraphrases or clearly implies the restricted proposition. It does not ask how much an adversary reading the text learns: a relay that asserts nothing can still narrow S to one of two conditions, and the arms here do. The inferential section below measures that separately, and the two must be reported together -- 'cut assertion from X to Y' is the honest claim, 'cut disclosure' is not.
 
 **Detector provenance.** `m1_draft` cascade only, `m1` cascade only, `m2` cascade only, `output` cascade only. A cascade-only rate is a lower bound: its entailment stage scores a plain paraphrase at 0.001, so a relay that discloses S without naming it reads clean. That includes `Phi_floor` whenever the Drop arm's channel was not judge-read.
+
+#### Pre-registered ordering H5
+
+Fixed before the arm was run: `full` > `constraint_only` >= `decision_only` on relay assertion of S.
+
+| inequality | observed | holds? |
+|---|---|---|
+| `full` > `constraint_only` | 0.100 > 0.000 | yes |
+| `constraint_only` <= `decision_only` | 0.000 vs 0.033 | yes |
+
+**Verdict: supported.** Both inequalities hold. The paired test on the second is 0 vs 1 discordant pairs, exact McNemar p = 1.000, so the ordering is consistent with the data without being established by it.
 
 ### Separability delta
 
@@ -150,9 +175,12 @@ One Holm family per use type, covering leak *and* utility tests together: the pa
 
 | test | p | p (Holm) | reject at 0.05 |
 |---|---|---|---|
-| utility constraint_only vs decision_only | 0.0045 | 0.0090 | yes |
-| utility constraint_only vs full | 0.0005 | 0.0016 | yes |
-| utility decision_only vs b4_restriction | 0.5930 | 0.5930 | no |
+| leak constraint_only vs decision_only | 1.0000 | 1.0000 | no |
+| leak constraint_only vs full | 0.2500 | 1.0000 | no |
+| leak decision_only vs b4_restriction | 1.0000 | 1.0000 | no |
+| utility constraint_only vs decision_only | 0.0045 | 0.0225 | yes |
+| utility constraint_only vs full | 0.0005 | 0.0032 | yes |
+| utility decision_only vs b4_restriction | 0.5930 | 1.0000 | no |
 
 ### Decision-implied leakage
 
@@ -203,13 +231,13 @@ The relay detector scores **assertion**. A relay that says "Option B" entails no
 
 | arm | utility | assertion leak (m1) | recovers S from the relay | bits (LB) | recovers S from the answer |
 |---|---|---|---|---|---|
-| constraint_only | 0.900 | - | 0.200 | 0.000 | 0.450 |
-| b1_privacy | 0.567 | - | 0.200 | 0.000 | 0.283 |
-| decision_only | 0.533 | - | 0.233 | 0.000 | 0.267 |
-| full | 0.500 | - | 0.333 | 0.004 | 0.250 |
-| b4_restriction | 0.467 | - | 0.267 | 0.000 | 0.233 |
-| swap | 0.400 | - | 0.233 | 0.000 | 0.133 |
-| drop | 0.300 | - | 0.233 | 0.000 | 0.150 |
+| constraint_only | 0.900 | 0.000 | 0.200 | 0.000 | 0.450 |
+| b1_privacy | 0.567 | 0.000 | 0.200 | 0.000 | 0.283 |
+| decision_only | 0.533 | 0.033 | 0.233 | 0.000 | 0.267 |
+| full | 0.500 | 0.100 | 0.333 | 0.004 | 0.250 |
+| b4_restriction | 0.467 | 0.033 | 0.267 | 0.000 | 0.233 |
+| swap | 0.400 | 0.000 | 0.233 | 0.000 | 0.133 |
+| drop | 0.300 | 0.000 | 0.233 | 0.000 | 0.150 |
 
 #### The relay-granularity gradient (H7)
 
@@ -262,6 +290,6 @@ Five restricted-category texts were reworded between the audit pilot and the fre
 |---|---|---|
 | delta/ceiling, `constraint_only` | 0.857 [0.667, 1.000] | 0.875 [0.647, 1.000] |
 | delta/ceiling, `decision_only` | 0.333 [0.000, 0.588] | 0.312 [0.000, 0.600] |
-| Lambda | n/a | n/a |
-| Phi_floor | n/a | n/a |
+| Lambda | 0.100 | 0.083 |
+| Phi_floor | 0.000 | 0.000 |
 
