@@ -11,6 +11,7 @@ several sittings.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -32,21 +33,41 @@ count a statement about a different matter.
 """
 
 
-def report(path: Path) -> int:
+def report(path: Path, frame_path: str = "") -> int:
     items = read_sheet(path)
     prog = sheet_progress(items)
     print("sheet: %s" % path)
     print("labelled %d of %d; %d called a leak by hand"
           % (prog["labelled"], prog["total"], prog["positives_by_hand"]))
+
+    # The sheet is stratified on the detector's verdict, so the cells are not
+    # sampled at the same rate and pooling them unweighted estimates Se/Sp for
+    # the sheet's verdict mix rather than for the data. With the frame -- the
+    # detection set the sheet was drawn from -- each item carries its cell's
+    # inverse sampling fraction and the estimate is the design-weighted one.
+    frame = None
+    if frame_path:
+        frame = [json.loads(l) for l in
+                 Path(frame_path).read_text(encoding="utf-8").splitlines()
+                 if l.strip()]
     try:
-        val = validation_from_sheet(items)
+        val = validation_from_sheet(items, frame)
     except ValueError as e:
         print(e)
         return 1
+    if frame is None:
+        print("\nWARNING: no --detections frame given, so Se/Sp below are "
+              "UNWEIGHTED.\nThis sheet is verdict-stratified, so that figure is "
+              "biased -- Se too high and Sp too low when positives are "
+              "over-sampled.\nPass --detections <the run's detections file> for "
+              "the design-weighted estimate.")
+    else:
+        print("\ndesign-weighted on %d frame detections" % len(frame))
     d = val.to_dict()
-    print("\nconfusion (detector vs hand):")
-    print("  tp %3d  fp %3d" % (d["tp"], d["fp"]))
-    print("  fn %3d  tn %3d" % (d["fn"], d["tn"]))
+    print("\nconfusion (detector vs hand)%s:"
+          % ("" if frame is None else ", weighted to the frame"))
+    print("  tp %7.1f  fp %7.1f" % (d["tp"], d["fp"]))
+    print("  fn %7.1f  tn %7.1f" % (d["fn"], d["tn"]))
     print("\nsensitivity %.3f   specificity %.3f   Youden %.3f"
           % (d["sensitivity"], d["specificity"], d["youden"]))
     gate = 0.85
@@ -63,6 +84,11 @@ def main() -> int:
     ap.add_argument("--labeller", default="")
     ap.add_argument("--report", action="store_true")
     ap.add_argument("--kappa", default="", help="a second labeller's sheet")
+    ap.add_argument("--detections", default="",
+                    help="the detection set this sheet was sampled from. "
+                         "Required for an unbiased Se/Sp: the sheet is "
+                         "stratified on the detector's verdict, so each item "
+                         "needs its cell's sampling weight.")
     args = ap.parse_args()
     path = Path(args.sheet)
 
@@ -79,13 +105,13 @@ def main() -> int:
         return 0
 
     if args.report:
-        return report(path)
+        return report(path, args.detections)
 
     items = read_sheet(path)
     todo = [i for i, it in enumerate(items) if it.label is None]
     if not todo:
         print("nothing left to label.")
-        return report(path)
+        return report(path, args.detections)
     print(HELP)
     print("%d of %d left.\n" % (len(todo), len(items)))
 
@@ -141,7 +167,7 @@ def main() -> int:
 
     write_sheet(items, path)
     print()
-    return report(path)
+    return report(path, args.detections)
 
 
 if __name__ == "__main__":

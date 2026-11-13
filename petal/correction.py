@@ -60,6 +60,40 @@ class Validation:
         tn = sum(1 for p, t in zip(predicted, truth) if not p and not t)
         return cls(tp=tp, fp=fp, fn=fn, tn=tn)
 
+    @classmethod
+    def from_weighted_labels(cls, predicted: Sequence[bool],
+                            truth: Sequence[bool],
+                            weights: Sequence[float]) -> "Validation":
+        """Se/Sp from a sample stratified on the detector's own verdict.
+
+        The validation sheet is drawn stratified by (arm x detector verdict).
+        That makes an item's sampling probability depend on the detector's
+        verdict -- which is exactly what Se and Sp condition on -- so pooling
+        the sampled items unweighted estimates the wrong quantity. With a
+        design that over-samples the detector's positives, unweighted Se is
+        biased up and unweighted Sp biased down.
+
+        The fix is the usual one for a stratified design: weight each item by
+        the inverse of its sampling fraction, so the weighted counts estimate
+        the counts in the population the sheet was drawn from.
+
+        Counts come back as floats, because weighted counts are not integers.
+        """
+        if not (len(predicted) == len(truth) == len(weights)):
+            raise ValueError("predicted, truth and weights differ in length")
+        z = zip(predicted, truth, weights)
+        tp = fp = fn = tn = 0.0
+        for pr, t, w in z:
+            if pr and t:
+                tp += w
+            elif pr and not t:
+                fp += w
+            elif t:
+                fn += w
+            else:
+                tn += w
+        return cls(tp=tp, fp=fp, fn=fn, tn=tn)
+
     def to_dict(self) -> dict:
         return {"tp": self.tp, "fp": self.fp, "fn": self.fn, "tn": self.tn,
                 "n": self.n, "sensitivity": self.sensitivity,

@@ -7,12 +7,24 @@ almost no positives and the sensitivity estimate would rest on a handful of
 items. Allocating the sample across (arm x verdict) cells guarantees both error
 directions are observable, and Rogan-Gladen needs both.
 
-Note the consequence, which the analysis must respect: a verdict-stratified
-sample is *not* representative of the trace population, so Se and Sp estimated
-from it are valid (they are conditional on the true label within a cell only to
-the extent cells are sampled proportionally) but the raw positive rate in the
-sheet is not an estimate of prevalence. Prevalence comes from the full detection
-run; the sheet only supplies Se and Sp.
+Two consequences the analysis must respect, and the second one bites.
+
+First, a verdict-stratified sample is not representative of the trace
+population, so the raw positive rate in the sheet is not an estimate of
+prevalence. Prevalence comes from the full detection run; the sheet supplies
+only Se and Sp.
+
+Second -- and this is the part an earlier version of this docstring waved at
+rather than fixed -- pooling the sampled items *unweighted* is only valid if
+every cell is sampled at the same rate, and this design deliberately does not
+do that: it puts a floor under small cells and then allocates the remainder
+round-robin, precisely so the rare positives are observable. Sampling
+probability therefore depends on the detector's verdict, which is the very
+thing Se and Sp condition on, and unweighted pooling estimates Se and Sp for
+the sheet's verdict mix rather than for the data. `validation_from_sheet`
+takes the full detection set as `frame` and returns the design-weighted
+estimate; the unweighted path is kept only for the degenerate case where no
+frame is available, and it is wrong whenever the cells differ in rate.
 """
 from __future__ import annotations
 
@@ -119,12 +131,64 @@ def read_sheet(path: Path) -> list[LabelItem]:
     return out
 
 
-def validation_from_sheet(items: list[LabelItem]) -> Validation:
+def cell_of(it: "LabelItem") -> tuple[str, bool]:
+    """The stratum an item was sampled from: (arm, detector verdict)."""
+    return (str(it.arm), bool(it.detector_leak))
+
+
+def sampling_weights(items: list["LabelItem"],
+                     frame: Iterable[dict[str, Any]]) -> dict[tuple[str, bool], float]:
+    """Inverse sampling fraction per (arm x verdict) cell.
+
+    `frame` is the full detection set the sheet was drawn from. A cell's weight
+    is its size in the frame over the number of *labelled* items drawn from it,
+    so the weighted counts estimate counts in the frame rather than in the
+    sheet. A cell present in the sheet but absent from the frame is a bug and
+    raises rather than silently getting weight 1.
+    """
+    pop: dict[tuple[str, bool], int] = {}
+    for d in frame:
+        k = (str(d.get("arm")), bool(d.get("leak")))
+        pop[k] = pop.get(k, 0) + 1
+    drawn: dict[tuple[str, bool], int] = {}
+    for it in items:
+        if it.label is not None:
+            k = cell_of(it)
+            drawn[k] = drawn.get(k, 0) + 1
+    out: dict[tuple[str, bool], float] = {}
+    for k, n in drawn.items():
+        if k not in pop:
+            raise ValueError(
+                "cell %r is in the sheet but not in the frame: the sheet was "
+                "drawn from a different detection set than the one supplied, "
+                "so its sampling weights cannot be recovered" % (k,))
+        out[k] = pop[k] / float(n)
+    return out
+
+
+def validation_from_sheet(items: list[LabelItem],
+                          frame: Iterable[dict[str, Any]] | None = None
+                          ) -> Validation:
+    """Se/Sp from the labelled items.
+
+    Pass `frame` -- the full detection set the sheet was sampled from -- to get
+    the design-weighted estimate, which is the correct one: the sheet is
+    stratified on the detector's verdict, so unweighted pooling estimates Se
+    and Sp for the sheet's own verdict mix rather than for the data. Without
+    `frame` the unweighted figure is returned, which is right only if every
+    cell happened to be sampled at the same rate.
+    """
     done = [it for it in items if it.label is not None]
     if not done:
         raise ValueError("no labelled items in the sheet")
-    return Validation.from_labels([it.detector_leak for it in done],
-                                  [bool(it.label) for it in done])
+    if frame is None:
+        return Validation.from_labels([it.detector_leak for it in done],
+                                      [bool(it.label) for it in done])
+    w = sampling_weights(items, frame)
+    return Validation.from_weighted_labels(
+        [it.detector_leak for it in done],
+        [bool(it.label) for it in done],
+        [w[cell_of(it)] for it in done])
 
 
 def sheet_progress(items: list[LabelItem]) -> dict[str, Any]:

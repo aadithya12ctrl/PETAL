@@ -13,7 +13,7 @@ Exclusion rule, fixed before the run: No scenario is excluded from the reported 
 
 ## Detector validation
 
-No hand-labelled validation set supplied, so leak rates are **observed, not corrected**. PETAL_v2 errata item 1: an observed rate is not a lower bound once the detector has false positives, and this one has them. Run `scripts/label.py` and pass `--labels`.
+Validation set: n=9 labelled, design-weighted to the 1920-detection frame; Se=1.000, Sp=0.963, Youden=0.963.
 
 ---
 
@@ -77,6 +77,20 @@ Petal wins iff dU > kappa x dLeak + lambda x dLength, against the restriction-aw
 
 | kappa | dU [95% CI] | dLeak | dLength | threshold | petal wins? | wins at CI low? |
 |---|---|---|---|---|---|---|
+
+### Corrected leak rates (Rogan-Gladen)
+
+CIs resample the trace set *and* the validation set; holding Se and Sp fixed gives intervals that are too narrow.
+
+| arm | observed | corrected [95% CI] |
+|---|---|---|
+| b1_privacy | 0.067 | 0.031 [0.000, 0.137] |
+| b4_restriction | 0.067 | 0.031 [0.000, 0.136] |
+| constraint_only | 0.100 | 0.065 [0.000, 0.181] |
+| decision_only | 0.133 | 0.100 [0.000, 0.239] |
+| drop | 0.000 | 0.000 [0.000, 0.000] |
+| full | 0.833 | 0.827 [0.686, 0.965] |
+| swap | 0.067 | 0.031 [0.000, 0.137] |
 
 ### Paired tests, Holm-corrected
 
@@ -166,6 +180,20 @@ Petal wins iff dU > kappa x dLeak + lambda x dLength, against the restriction-aw
 
 | kappa | dU [95% CI] | dLeak | dLength | threshold | petal wins? | wins at CI low? |
 |---|---|---|---|---|---|---|
+
+### Corrected leak rates (Rogan-Gladen)
+
+CIs resample the trace set *and* the validation set; holding Se and Sp fixed gives intervals that are too narrow.
+
+| arm | observed | corrected [95% CI] |
+|---|---|---|
+| b1_privacy | 0.167 | 0.135 [0.002, 0.279] |
+| b4_restriction | 0.067 | 0.031 [0.000, 0.136] |
+| constraint_only | 0.267 | 0.239 [0.075, 0.412] |
+| decision_only | 0.200 | 0.169 [0.031, 0.335] |
+| drop | 0.167 | 0.135 [0.002, 0.278] |
+| full | 0.833 | 0.827 [0.686, 0.965] |
+| swap | 0.000 | 0.000 [0.000, 0.000] |
 
 ### Paired tests, Holm-corrected
 

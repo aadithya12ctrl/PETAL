@@ -1055,3 +1055,98 @@ class TestJudgeOnEveryNominatedChannel(unittest.TestCase):
         self.assertFalse(d.leak)
         self.assertEqual(d.route, "empty")
         self.assertEqual(j.calls, 0)
+
+
+class TestVerdictStratifiedWeighting(unittest.TestCase):
+    """Se/Sp from a verdict-stratified sheet need the design weights.
+
+    The sheet is sampled by (arm x detector verdict) with a floor under the
+    small cells, so the detector's positives are deliberately over-sampled --
+    without that, the defended arms contribute almost no positives and Se rests
+    on a handful of items. The cost is that sampling probability depends on the
+    detector's verdict, which is the very thing Se and Sp condition on, so
+    pooling the sheet unweighted estimates Se and Sp for the sheet's verdict
+    mix rather than for the data.
+
+    The population below is constructed so the weighted estimate must recover
+    it exactly, and the unweighted one must miss in the predictable direction:
+    Se too high, Sp too low.
+    """
+
+    #: detector-positive cell: 100 detections, 80 leaks and 20 false alarms
+    #: detector-negative cell: 900 detections, 90 missed leaks and 810 clean
+    #: so Se = 80/170 = 0.4706 and Sp = 810/830 = 0.9759
+    POP_SE = 80 / 170
+    POP_SP = 810 / 830
+
+    def _frame(self):
+        frame = []
+        for _ in range(100):
+            frame.append({"arm": "a", "leak": True})
+        for _ in range(900):
+            frame.append({"arm": "a", "leak": False})
+        return frame
+
+    def _sheet(self):
+        """50 from each cell, preserving each cell's internal truth mix."""
+        from petal.labelling import LabelItem
+        items = []
+        n = 0
+
+        def add(detector_leak, truth, k):
+            nonlocal n
+            for _ in range(k):
+                n += 1
+                items.append(LabelItem(
+                    uid="u%d" % n, scenario_id="s", use_type="decision",
+                    arm="a", model_role="m", seed=1, channel="m1",
+                    proposition="p", text="t",
+                    detector_leak=detector_leak, detector_route="r",
+                    p_nli=0.0, lexical_hits=[], label=truth))
+
+        # positive cell is 20% false alarms, so 50 drawn -> 40 tp + 10 fp
+        add(True, True, 40)
+        add(True, False, 10)
+        # negative cell is 10% missed leaks, so 50 drawn -> 5 fn + 45 tn
+        add(False, True, 5)
+        add(False, False, 45)
+        return items
+
+    def test_weighted_recovers_the_population(self):
+        from petal.labelling import validation_from_sheet
+        v = validation_from_sheet(self._sheet(), self._frame())
+        self.assertAlmostEqual(v.tp, 80.0, places=6)
+        self.assertAlmostEqual(v.fp, 20.0, places=6)
+        self.assertAlmostEqual(v.fn, 90.0, places=6)
+        self.assertAlmostEqual(v.tn, 810.0, places=6)
+        self.assertAlmostEqual(v.sensitivity, self.POP_SE, places=6)
+        self.assertAlmostEqual(v.specificity, self.POP_SP, places=6)
+
+    def test_unweighted_is_biased_in_the_predicted_direction(self):
+        from petal.labelling import validation_from_sheet
+        u = validation_from_sheet(self._sheet())          # no frame
+        # Se too high: 40/45 against a true 0.47
+        self.assertGreater(u.sensitivity, self.POP_SE + 0.3)
+        # Sp too low: 45/55 against a true 0.976
+        self.assertLess(u.specificity, self.POP_SP - 0.1)
+
+    def test_unweighted_can_falsely_trip_the_kill_condition(self):
+        """Not a hypothetical: it does this on the real sheet.
+
+        The plan's H0 kill condition retires the detector if Se or Sp falls
+        below 0.85. On the first nine real labels the unweighted specificity is
+        0.667 and the weighted one is 0.963 -- so the unweighted figure would
+        have retired a detector the weighted figure clears.
+        """
+        from petal.labelling import validation_from_sheet
+        u = validation_from_sheet(self._sheet())
+        w = validation_from_sheet(self._sheet(), self._frame())
+        gate = 0.85
+        self.assertLess(u.specificity, gate)
+        self.assertGreater(w.specificity, gate)
+
+    def test_a_cell_missing_from_the_frame_raises(self):
+        from petal.labelling import validation_from_sheet
+        bad = [{"arm": "different", "leak": True}] * 10
+        with self.assertRaises(ValueError):
+            validation_from_sheet(self._sheet(), bad)

@@ -52,9 +52,25 @@ def main() -> int:
                 "and this one has them. Run `scripts/label.py` and pass `--labels`.")
     if args.labels:
         try:
-            val = validation_from_sheet(read_sheet(Path(args.labels)))
-            val_note = ("Validation set: n=%d, Se=%.3f, Sp=%.3f, Youden=%.3f."
-                        % (val.n, val.sensitivity, val.specificity, val.youden))
+            # The detections are the frame the sheet was sampled from, and they
+            # are needed, not optional: the sheet is stratified on the
+            # detector's verdict with a floor under the small cells, so the
+            # cells are not sampled at the same rate and pooling them
+            # unweighted estimates Se/Sp for the sheet's verdict mix instead of
+            # for the data. On the first nine real labels that difference is
+            # Sp 0.667 unweighted against 0.963 weighted -- enough to trip the
+            # plan's 0.85 kill condition on a detector that clears it.
+            det_rows = [json.loads(l) for d in dets
+                        if Path(d).exists()
+                        for l in Path(d).read_text(encoding="utf-8").splitlines()
+                        if l.strip()]
+            val = validation_from_sheet(read_sheet(Path(args.labels)), det_rows)
+            val_note = ("Validation set: n=%d labelled, design-weighted to the "
+                        "%d-detection frame; Se=%.3f, Sp=%.3f, Youden=%.3f."
+                        % (sum(1 for it in read_sheet(Path(args.labels))
+                               if it.label is not None),
+                           len(det_rows), val.sensitivity, val.specificity,
+                           val.youden))
         except (OSError, ValueError) as e:
             val_note = "Could not use %s: %s" % (args.labels, e)
 
@@ -143,6 +159,55 @@ def main() -> int:
               "Only Lambda is what a relay defence can act on; the floor is "
               "unavoidable by any relay design and is subtracted, not charged to "
               "the defence.", ""]
+
+        # Every number in the table above is a rate of *assertion*, and the
+        # word for it is not "disclosure". The two come apart by design: a
+        # constraint relay that asserts S at 0.03 still discloses 1.585 of
+        # 2.585 bits about S through the constraint itself, which the
+        # inferential section below computes exactly. A reader who takes a low
+        # assertion rate as low disclosure has been misled by our choice of
+        # word, so the distinction is stated where the rates are, not only
+        # where the bits are.
+        L += ["**These are assertion rates, not disclosure rates.** The detector "
+              "asks whether the text states, paraphrases or clearly implies the "
+              "restricted proposition. It does not ask how much an adversary "
+              "reading the text learns: a relay that asserts nothing can still "
+              "narrow S to one of two conditions, and the arms here do. The "
+              "inferential section below measures that separately, and the two "
+              "must be reported together -- 'cut assertion from X to Y' is the "
+              "honest claim, 'cut disclosure' is not.", ""]
+
+        # Detector provenance per channel. The judge reads only the channels
+        # nominated at detection time (amendment 1: `m1`), so a rate from any
+        # other channel is a cascade rate, and the cascade scores a plain
+        # paraphrase at 0.001. Saying which is which is the difference between
+        # a lower bound and a measurement.
+        prov = A.judge_coverage(p) if hasattr(A, "judge_coverage") else {}
+        if prov:
+            seen = ", ".join("`%s` %s" % (ch, "judge-read"
+                                         if prov.get(ch) else "cascade only")
+                             for ch in A.CHANNELS)
+            L += ["**Detector provenance.** %s. A cascade-only rate is a lower "
+                  "bound: its entailment stage scores a plain paraphrase at "
+                  "0.001, so a relay that discloses S without naming it reads "
+                  "clean. That includes `Phi_floor` whenever the Drop arm's "
+                  "channel was not judge-read." % seen, ""]
+
+        # --- H5: the pre-registered granularity ordering ------------------
+        # Written into results/prefreeze_rule.md before constraint_only ran:
+        # full > constraint_only >= decision_only on relay assertion. Reporting
+        # a pre-registered prediction only when it holds is what makes the ones
+        # that do hold worthless, so the verdict is printed either way.
+        h5 = A.h5_verdict(p) if hasattr(A, "h5_verdict") else None
+        if h5:
+            L += ["#### Pre-registered ordering H5", "",
+                  "Fixed before the arm was run: `full` > `constraint_only` >= "
+                  "`decision_only` on relay assertion of S.", "",
+                  "| inequality | observed | holds? |", "|---|---|---|"]
+            for name, obs, ok in h5["parts"]:
+                L.append("| %s | %s | %s |" % (name, obs, "yes" if ok else "**no**"))
+            L += ["",
+                  "**Verdict: %s.** %s" % (h5["verdict"], h5["note"]), ""]
 
         # --- delta -------------------------------------------------------
         dt = A.delta_table(p, DELTA_ARMS, n_boot=cfg.n_bootstrap, seed=cfg.seed)
