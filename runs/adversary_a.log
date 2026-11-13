@@ -1,0 +1,15 @@
+48 relays over 4 arms (12 each)
+   10/48  spend $4.1954
+   20/48  spend $4.1954
+   30/48  spend $4.2150
+   40/48  spend $4.2419
+   48/48  spend $4.2594
+
+| arm | n | k | recovers S | chance | bits (Fano, conservative) |
+|---|---|---|---|---|---|
+| constraint_only | 12 | 6 | 0.167 | 0.167 | 0.000 |
+| decision_only | 12 | 6 | 0.000 | 0.167 | 0.000 |
+| drop | 12 | 6 | 0.000 | 0.167 | 0.000 |
+| full | 12 | 6 | 0.667 | 0.167 | 0.205 |
+
+spend: $4.2594 -> C:\Users\shesh\Downloads\PETAL\results\llm_adversary.json

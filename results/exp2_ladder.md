@@ -1,6 +1,6 @@
 # Experiment 2: ladder decay against Theorem T3
 
-Run file: `runs/exp2_mock_agent_a_seed20261109.jsonl`
+Run file: `runs/exp2_paid_agent_a_seed20261109.jsonl`
 Kind: `medical`; probe over k = 47 candidate propositions; I(S;M_0) assumed at its maximum log2(k) = 5.55 bits.
 
 ## The ladder actually used
@@ -21,22 +21,22 @@ Product over the randomised rungs: **0.0507**. PETAL_v2 §4.3 quotes 0.039 for a
 
 | schedule | hop | n | probe error | probe LB | LB (cons.) | T3 UB | H4 |
 |---|---|---|---|---|---|---|---|
-| none | 1 | 20 | 0.000 | 5.555 | 4.204 | 5.555 |  |
-| none | 2 | 20 | 0.000 | 5.555 | 4.204 | 5.555 |  |
-| none | 3 | 20 | 0.000 | 5.555 | 4.204 | 5.555 |  |
-| none | 4 | 20 | 0.000 | 5.555 | 4.204 | 5.555 |  |
-| deterministic | 1 | 20 | 0.000 | 5.555 | 4.204 | 5.555 |  |
+| none | 1 | 20 | 0.550 | 1.524 | 0.635 | 5.555 |  |
+| none | 2 | 20 | 0.550 | 1.524 | 0.635 | 5.555 |  |
+| none | 3 | 20 | 0.450 | 2.076 | 1.016 | 5.555 |  |
+| none | 4 | 20 | 0.350 | 2.687 | 1.482 | 5.555 |  |
+| deterministic | 1 | 20 | 0.550 | 1.524 | 0.635 | 5.555 |  |
 | deterministic | 2 | 20 | 1.000 | 0.000 | 0.000 | 5.555 |  |
 | deterministic | 3 | 20 | 1.000 | 0.000 | 0.000 | 5.555 |  |
 | deterministic | 4 | 20 | 1.000 | 0.000 | 0.000 | 5.555 |  |
-| stochastic | 1 | 20 | 0.100 | 4.533 | 3.135 | 4.420 | point est. only |
-| stochastic | 2 | 20 | 1.000 | 0.000 | 0.000 | 3.016 |  |
+| stochastic | 1 | 20 | 0.550 | 1.524 | 0.635 | 4.420 |  |
+| stochastic | 2 | 20 | 0.950 | 0.021 | 0.000 | 3.016 |  |
 | stochastic | 3 | 20 | 1.000 | 0.000 | 0.000 | 1.407 |  |
 | stochastic | 4 | 20 | 1.000 | 0.000 | 0.000 | 0.281 |  |
-| random_dropout | 1 | 20 | 0.450 | 2.076 | 1.016 | 5.555 |  |
-| random_dropout | 2 | 20 | 0.650 | 1.030 | 0.336 | 5.555 |  |
-| random_dropout | 3 | 20 | 0.750 | 0.601 | 0.124 | 5.555 |  |
-| random_dropout | 4 | 20 | 0.900 | 0.114 | 0.000 | 5.555 |  |
+| random_dropout | 1 | 20 | 0.750 | 0.601 | 0.124 | 5.555 |  |
+| random_dropout | 2 | 20 | 0.900 | 0.114 | 0.000 | 5.555 |  |
+| random_dropout | 3 | 20 | 0.900 | 0.114 | 0.000 | 5.555 |  |
+| random_dropout | 4 | 20 | 0.950 | 0.021 | 0.000 | 5.555 |  |
 
 Chance error for this probe is 0.979, i.e. 0.000 bits.
 
@@ -48,20 +48,20 @@ The question that is about the agents is whether they carry S *around* the slot 
 
 | schedule | hop | n | probe error | LB (cons.) | T3 UB | H4 (side) |
 |---|---|---|---|---|---|---|
-| none | 1 | 20 | 1.000 | 0.000 | 5.555 |  |
-| none | 2 | 20 | 1.000 | 0.000 | 5.555 |  |
+| none | 1 | 20 | 0.950 | 0.000 | 5.555 |  |
+| none | 2 | 20 | 0.950 | 0.000 | 5.555 |  |
 | none | 3 | 20 | 1.000 | 0.000 | 5.555 |  |
-| none | 4 | 20 | 1.000 | 0.000 | 5.555 |  |
-| deterministic | 1 | 20 | 1.000 | 0.000 | 5.555 |  |
-| deterministic | 2 | 20 | 1.000 | 0.000 | 5.555 |  |
+| none | 4 | 20 | 0.950 | 0.000 | 5.555 |  |
+| deterministic | 1 | 20 | 0.950 | 0.000 | 5.555 |  |
+| deterministic | 2 | 20 | 0.950 | 0.000 | 5.555 |  |
 | deterministic | 3 | 20 | 1.000 | 0.000 | 5.555 |  |
 | deterministic | 4 | 20 | 1.000 | 0.000 | 5.555 |  |
-| stochastic | 1 | 20 | 1.000 | 0.000 | 4.420 |  |
-| stochastic | 2 | 20 | 1.000 | 0.000 | 3.016 |  |
+| stochastic | 1 | 20 | 0.950 | 0.000 | 4.420 |  |
+| stochastic | 2 | 20 | 0.950 | 0.000 | 3.016 |  |
 | stochastic | 3 | 20 | 1.000 | 0.000 | 1.407 |  |
 | stochastic | 4 | 20 | 1.000 | 0.000 | 0.281 |  |
-| random_dropout | 1 | 20 | 1.000 | 0.000 | 5.555 |  |
-| random_dropout | 2 | 20 | 1.000 | 0.000 | 5.555 |  |
+| random_dropout | 1 | 20 | 0.950 | 0.000 | 5.555 |  |
+| random_dropout | 2 | 20 | 0.950 | 0.000 | 5.555 |  |
 | random_dropout | 3 | 20 | 1.000 | 0.000 | 5.555 |  |
 | random_dropout | 4 | 20 | 1.000 | 0.000 | 5.555 |  |
 
@@ -69,10 +69,10 @@ The `none` schedule is the reference: it writes no slot, so its no-slot column i
 
 ## Task utility by schedule
 
-- none           mean utility 0.865 (n=20)
-- deterministic  mean utility 0.650 (n=20)
-- stochastic     mean utility 0.650 (n=20)
-- random_dropout mean utility 0.685 (n=20)
+- none           mean utility 0.595 (n=20)
+- deterministic  mean utility 0.595 (n=20)
+- stochastic     mean utility 0.590 (n=20)
+- random_dropout mean utility 0.605 (n=20)
 
 ## H4 verdict
 

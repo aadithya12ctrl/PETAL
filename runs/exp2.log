@@ -1,0 +1,18 @@
+ladder for kind 'medical':
+  rung 0 exact        k=47  p=0.80 eta=0.7957 cumulative=0.79565
+  rung 1 area         k=18  p=0.70 eta=0.6824 cumulative=0.54292
+  rung 2 kind         k=4   p=0.60 eta=0.4667 cumulative=0.25336
+  rung 3 placeholder  k=2   p=0.60 eta=0.2000 cumulative=0.05067
+  rung 4 dropped      k=1   p=1.00 eta=0.0000 cumulative=0.00000
+  eta product over the randomised rungs: 0.0507
+
+20 scenarios x 4 schedules x 5 hops = 400 calls, backend openrouter
+   5/20 scenarios, spend $4.1954
+  10/20 scenarios, spend $4.3038
+  15/20 scenarios, spend $4.4022
+  20/20 scenarios, spend $4.4908
+
+80 chain runs, 400 calls (181 paid), 3427s
+spend: $4.4908 | cache {'hits': 235, 'misses': 189}
+-> C:\Users\shesh\Downloads\PETAL\runs\exp2_paid_agent_a_seed20261109.jsonl
+-> C:\Users\shesh\Downloads\PETAL\results\ladder_medical.json

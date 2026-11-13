@@ -13,6 +13,7 @@ money by accident:
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +24,80 @@ from .paths import LEDGER
 
 class SpendLimitExceeded(RuntimeError):
     pass
+
+
+def _append_locked(path: "Path", line: bytes, *, tries: int = 200) -> None:
+    """Append one record to the ledger under an exclusive cross-process lock.
+
+    Two runs sharing a ledger corrupt it, and on Windows they do so silently.
+    Running Experiment 2 and the LLM adversary at the same time left
+    `{"ts": ..., "completion_tokens": 2` on one line and `"}` on the next, and
+    a thread test then showed 294 of 320 records simply missing -- no
+    exception, no torn line, just gone.
+
+    The cause is that `O_APPEND` is emulated on Windows as seek-to-end then
+    write, which is not atomic: two writers resolve the same end offset and
+    one overwrites the other. POSIX `O_APPEND` would be safe; relying on it
+    is not portable, and this project runs on Windows.
+
+    Why it matters more than a lost cent: `_load` skips unparseable lines, so a
+    damaged ledger makes the recomputed total *lower* than the true spend, and
+    the hard ceiling is computed from that total. The failure direction is
+    toward overspending.
+
+    So: a sidecar lock file, an exclusive byte-range lock on it, then the
+    append. The lock is advisory between cooperating writers, which is exactly
+    what this is -- every writer goes through here.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock = path.with_suffix(path.suffix + ".lock")
+    lfd = os.open(lock, os.O_WRONLY | os.O_CREAT, 0o644)
+    try:
+        _flock(lfd, tries)
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+            try:
+                os.lseek(fd, 0, os.SEEK_END)
+                os.write(fd, line)
+            finally:
+                os.close(fd)
+        finally:
+            _funlock(lfd)
+    finally:
+        os.close(lfd)
+
+
+def _flock(fd: int, tries: int) -> None:
+    try:
+        import fcntl
+    except ImportError:
+        import msvcrt
+        for _ in range(tries):
+            try:
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                return
+            except OSError:
+                time.sleep(0.01)
+        raise RuntimeError("could not lock the spend ledger; refusing to "
+                           "append a record that might be lost")
+    else:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+
+
+def _funlock(fd: int) -> None:
+    try:
+        import fcntl
+    except ImportError:
+        import msvcrt
+        try:
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
+    else:
+        fcntl.flock(fd, fcntl.LOCK_UN)
 
 
 @dataclass
@@ -108,8 +183,9 @@ class CostMeter:
         }
         if extra:
             rec["extra"] = extra
-        with self.ledger.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        _append_locked(self.ledger,
+                       (json.dumps(rec, ensure_ascii=False) + "\n")
+                       .encode("utf-8"))
         self._total += float(cost_usd)
         self._calls += 1
         if self.warn_at and not self._warned and self._total >= self.warn_at:

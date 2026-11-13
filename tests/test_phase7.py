@@ -1150,3 +1150,73 @@ class TestVerdictStratifiedWeighting(unittest.TestCase):
         bad = [{"arm": "different", "leak": True}] * 10
         with self.assertRaises(ValueError):
             validation_from_sheet(self._sheet(), bad)
+
+
+class TestLedgerConcurrentAppends(unittest.TestCase):
+    """Two runs appending to one ledger must not tear a record in half.
+
+    This is not hypothetical. Running Experiment 2 and the LLM adversary at
+    the same time left `{"ts": ..., "completion_tokens": 2` on one line and
+    `"}` on the next, and the meter's loader skips unparseable lines -- so one
+    judge call's cost silently left the total. That is the dangerous direction:
+    the ledger understates spend, and the hard ceiling is computed from it.
+    """
+
+    def test_a_torn_line_makes_the_ledger_understate_spend(self):
+        """The failure mode, pinned so nobody 'fixes' the skip and hides it."""
+        import json
+        import tempfile
+        from petal.costmeter import CostMeter
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "ledger.jsonl"
+            good = json.dumps({"cost_usd": 1.0}) + "\n"
+            p.write_text(good + '{"cost_usd": 2' + "\n" + '"}' + "\n" + good,
+                         encoding="utf-8")
+            m = CostMeter(10.0, ledger=p)
+            # two parseable records at 1.0; the torn 2.0 is gone, not counted
+            self.assertAlmostEqual(m.total, 2.0, places=6)
+
+    def test_concurrent_writers_produce_only_whole_records(self):
+        import json
+        import tempfile
+        import threading
+        from petal.costmeter import CostMeter
+
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "ledger.jsonl"
+            n_threads, per = 8, 40
+
+            def work(w):
+                m = CostMeter(1e9, ledger=p)
+                for i in range(per):
+                    m.commit(model="m", provider="p", role="r",
+                             prompt_tokens=1000 + i, completion_tokens=2000 + i,
+                             cost_usd=0.001, cached=False,
+                             tag="w%d-%d-%s" % (w, i, "x" * 200))
+
+            ts = [threading.Thread(target=work, args=(w,)) for w in range(n_threads)]
+            for t in ts:
+                t.start()
+            for t in ts:
+                t.join()
+
+            lines = [l for l in p.read_text(encoding="utf-8").splitlines()
+                     if l.strip()]
+            self.assertEqual(len(lines), n_threads * per)
+            for l in lines:
+                json.loads(l)          # every line whole: raises if torn
+            total = sum(json.loads(l)["cost_usd"] for l in lines)
+            self.assertAlmostEqual(total, n_threads * per * 0.001, places=6)
+
+    def test_the_ceiling_still_reads_a_ledger_written_this_way(self):
+        import tempfile
+        from petal.costmeter import CostMeter
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "ledger.jsonl"
+            a = CostMeter(10.0, ledger=p)
+            for _ in range(5):
+                a.commit(model="m", provider="p", role="r", prompt_tokens=10,
+                         completion_tokens=10, cost_usd=0.5, cached=False, tag="t")
+            # a fresh meter recomputes the total from the ledger on disk
+            b = CostMeter(10.0, ledger=p)
+            self.assertAlmostEqual(b.total, 2.5, places=6)

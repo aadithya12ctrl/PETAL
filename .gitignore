@@ -8,3 +8,4 @@ runs/spend_state.json
 *.egg-info/
 runs/*.pid
 runs/*.err.log
+ledger.jsonl.lock
