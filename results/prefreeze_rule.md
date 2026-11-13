@@ -664,3 +664,66 @@ shown to fail in a way the entailment stage does not -- it asserts what its own
 reasoning denies -- so "escalate to a stronger reader" is not a free
 improvement, and the paper should say so. A cascade whose last stage is an LLM
 inherits that stage's incoherence.
+
+## Pre-registration amendment 2: the validation set is cut from 200 to 80
+
+Recorded **before any item in the subset was labelled** beyond the 9 already
+done, and before any Se/Sp figure was computed from them.
+
+**What changes.** The hand-labelled validation set becomes:
+
+| part | n | what it is for |
+|---|---|---|
+| disagreement supplement | 30 | arbitrating the 44 items where the cascade and the judge differ |
+| main-frame subset | 50 | estimating the detector's Se/Sp on the frame as a whole |
+| **total** | **80** | of which 9 are already labelled |
+
+**Why.** 200 was sized for tight intervals on the Rogan-Gladen correction, not
+for the time it actually takes. The cost of the cut is precision: the corrected
+leak rates get wider intervals. At n=30 scenarios per arm that is acceptable for
+a workshop paper, and the paper states the label count rather than implying a
+larger one.
+
+**What must not happen, and how it is prevented.** The danger in shrinking a
+validation set mid-task is that the stopping point gets chosen after seeing the
+answers -- "I stopped when the numbers looked right" and "I stopped when I got
+tired" leave identical traces. So the subset is fixed mechanically, in advance,
+by `scripts/emit_label_subset.py`:
+
+* seed **20261113**, recorded here;
+* stratified by **arm x detector verdict**, the same frame the 200 were drawn
+  on, with a floor of one item per existing cell;
+* the 9 already-labelled items carried in first -- they were drawn blind from
+  the same frame before this amendment existed, so keeping them is not a choice
+  about their content, and discarding completed work would itself be a
+  selection;
+* remainder allocated round-robin, largest cell first.
+
+The selection is reproducible: `sha256` of the sorted item ids is
+**`9eee9df07c1f1da6`**. Re-running the script reproduces it exactly, so a
+reader can check that the labelled set is the one declared here rather than one
+assembled afterwards.
+
+**Cell coverage, and one gap worth naming.** The 200-item frame was drawn from
+the *cascade-only* detections, in which the Drop arm leaked at 0.000. There is
+therefore **no `drop` x leak cell in the main frame at all**, and the subset
+cannot create one. The Drop-arm positives exist only because the judge later
+flagged them, and they are in the supplement -- which is the other reason the
+supplement is not optional.
+
+**The two parts must not be pooled.** The supplement is deliberately enriched
+for disagreements; pooling it with the main subset would make the detector look
+far worse than it is, because every item in it is a case where one of the two
+readers is wrong by construction. The main subset estimates Se/Sp; the
+supplement decides *which reader* is wrong where they differ. They answer
+different questions and are reported separately.
+
+**The subset is a sample of the detector's verdicts, and that has a
+consequence.** Stratifying on the detector's verdict means the sampling
+probability depends on the very quantity Se and Sp condition on, so pooling the
+sampled cells unweighted is biased. Each item carries a sampling weight equal to
+its cell's size in the full detection set divided by the number drawn from that
+cell, and Se/Sp are computed as weighted ratios. This was already true of the
+200-item sheet and is not introduced by the cut; it is recorded here because the
+cut makes the per-cell fractions more uneven. The full frame stays on disk for
+exactly this reason -- the weights cannot be recovered without it.
