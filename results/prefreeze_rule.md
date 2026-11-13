@@ -727,3 +727,98 @@ cell, and Se/Sp are computed as weighted ratios. This was already true of the
 200-item sheet and is not introduced by the cut; it is recorded here because the
 cut makes the per-cell fractions more uneven. The full frame stays on disk for
 exactly this reason -- the weights cannot be recovered without it.
+
+## Pre-registration amendment 3: amendment 1 is reverted on the evidence it asked for
+
+Amendment 1 put the judge on every `m1` span because the entailment stage
+scored a plain paraphrase at 0.001, and it said in advance: *"the ratio quoted
+in the paper will be the judge-read one, whatever it turns out to be."* It also
+said the hand labels would arbitrate. They have, and they say the judge is the
+worse reader. So the reported rates revert to the 3-stage cascade, and the judge
+pass becomes a reported negative result rather than the measurement.
+
+**The arbitration.** 80 items hand-labelled by the author: a 50-item
+design-weighted subset of the main frame, and 30 items drawn from exactly the
+cases where the two readers disagree.
+
+On the 50-item subset, weighted to the frame it was sampled from:
+
+| reader | Se | Sp | Youden |
+|---|---|---|---|
+| cascade (3-stage) | **1.000** | **0.984** | **0.984** |
+| judge-augmented | 0.900 | 0.956 | 0.857 |
+
+On the 30 disagreement items -- the decisive set, since by construction one
+reader is wrong on each:
+
+| reader | correct | tp | fp | fn | tn |
+|---|---|---|---|---|---|
+| cascade | **29 / 30** | 3 | 0 | 1 | 26 |
+| judge-augmented | **1 / 30** | 1 | 26 | 3 | 0 |
+
+By origin group:
+
+| group | n | hand says leak | hand says clean |
+|---|---|---|---|
+| cascade missed, judge flagged | 27 | **1** | **26** |
+| cascade flagged, judge cleared | 3 | **3** | 0 |
+| Drop-arm positives (judge only) | 4 | **0** | **4** |
+
+**What each row means.** The 27 paraphrase-and-implication items the judge
+"caught" and the cascade filed as `nli_low` are, on the hand labels, **26 clean
+and 1 leak**. So the cascade's low entailment scores were right and the judge's
+flags were confabulation -- consistent with the verdict/reason contradictions
+read off those relays earlier. The 3 items the judge cleared were **all real
+leaks**, which the cascade's lexical gate had correctly caught. And all 4 Drop
+positives are clean, so **`Phi_floor` is 0.000, not 0.167** -- the permitted
+file does not give S away, which is what the dev audit said before the freeze
+and what the entailment stage said after it.
+
+**The cascade is not perfect, and the supplement is how we know.** It missed 1
+of the 27 hard items. The 50-item subset could not have found that: 33 such
+items sat in a cascade-negative population of ~1459, so 27 cascade-negative
+draws expected ~0.6 of them, and `Se = 1.000` there was weak evidence about
+paraphrase specifically. The supplement sampled the stratum directly and found
+the cascade's sensitivity on it to be high but short of 1.
+
+**Reported numbers.** Decision tasks, `m1`, cascade, Rogan-Gladen corrected at
+Se = 1.000 / Sp = 0.984:
+
+| arm | observed | corrected [95% CI] |
+|---|---|---|
+| `full` | 0.767 | 0.763 [0.594, 0.899] |
+| `decision_only` | 0.133 | 0.119 [0.015, 0.255] |
+| `constraint_only` | 0.033 | 0.017 [0.000, 0.088] |
+| `b1_privacy` | 0.033 | 0.017 [0.000, 0.088] |
+| `drop` (`Phi_floor`) | 0.000 | 0.000 |
+| `swap` | 0.000 | 0.000 |
+
+So the separation that amendment 1 cut from 23x to 3.1x is restored to the
+cascade's figure, now with hand-label support rather than on the cascade's own
+authority. The honest headline sentence is unchanged in form and its numbers
+revert:
+
+> Constraint relays cut explicit assertion of S from 77% to 3% at no utility
+> cost, while still disclosing 1.585 of 2.585 bits about S through the
+> constraint itself.
+
+The bits clause still matters and still is not a leak rate: assertion and
+disclosure remain different quantities, and no reading of the relay text
+changes the second one.
+
+**The finding this leaves the paper.** It is not that LLM judges are bad
+detectors in general; it is a specific, measured failure mode. Asked whether a
+text asserts a proposition it has been shown, this judge returned `VERDICT: YES`
+beside reasons that negate its own verdict ("it states **no** inpatient episode
+occurred"), hallucinated phrases absent from the text, and cleared texts that
+state the condition outright. Primed with the answer, it found the answer. A
+cascade whose last stage is an LLM inherits that, and "escalate to a stronger
+reader" was not a free improvement -- it cost 0.127 Youden and would have put
+`Phi_floor` at 0.167 and every defended arm roughly eight times too high.
+
+**What stays reported from the judge pass.** The pass itself, its cost ($0.197,
+593 calls), the disagreement counts, and this arbitration. Amendment 1's
+pre-registered expectation -- that the defended arms would rise more than
+`full` -- was confirmed in *direction* and refuted in *cause*: they rose because
+the judge manufactured positives in the arms whose relays carry hints, not
+because those relays disclose more than the cascade could see.
