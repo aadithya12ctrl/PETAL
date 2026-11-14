@@ -1220,3 +1220,143 @@ class TestLedgerConcurrentAppends(unittest.TestCase):
             # a fresh meter recomputes the total from the ledger on disk
             b = CostMeter(10.0, ledger=p)
             self.assertAlmostEqual(b.total, 2.5, places=6)
+
+
+class TestTruncationWithoutLengthFinishReason(unittest.TestCase):
+    """The bug that invalidated the first LLM-adversary run.
+
+    `chat` escalated only when the provider said `finish_reason == "length"`.
+    In the adversary run of 2026-11-14, 79 of 81 silent replies came back with
+    *exactly* the budget in completion tokens and some other finish_reason, so
+    no escalation fired, the empty string reached the caller, and it was scored
+    as the attacker failing to name S.
+
+    The damage was differential: silence ran at 40% in Full and 87% in Drop,
+    because a thinner relay makes the model deliberate longer and hit the cap
+    sooner. The bug therefore pushed measured recovery down hardest in the arms
+    the hypothesis wants lowest.
+    """
+
+    @staticmethod
+    def _backend(sequence):
+        """A backend returning scripted (text, completion_tokens, finish) tuples."""
+        class B:
+            name, version = "fake", "1"
+
+            def __init__(self):
+                self.seen = []
+
+            def complete(self, spec, payload):
+                budget = payload["max_tokens"]
+                self.seen.append(budget)
+                text, ct, finish = sequence(budget)
+                return {"choices": [{"message": {"content": text},
+                                     "finish_reason": finish}],
+                        "usage": {"prompt_tokens": 10, "completion_tokens": ct,
+                                  "cost": 0.0},
+                        "model": "m", "provider": "p"}
+        return B()
+
+    def _client(self, backend, max_tokens=200):
+        import tempfile
+        from petal.client import LLMClient
+        from petal.config import ModelSpec, default_config
+        from petal.costmeter import CostMeter
+        cfg = default_config()
+        cfg.models["judge"] = ModelSpec(role="judge", model="m",
+                                        temperature=0.0, max_tokens=max_tokens)
+        d = tempfile.mkdtemp()
+        return LLMClient(cfg, backend=backend, cache_enabled=False, prices={},
+                         meter=CostMeter(1.0, ledger=Path(d) / "ledger.jsonl"))
+
+    def test_escalates_when_tokens_hit_the_cap_but_finish_reason_lies(self):
+        def seq(budget):
+            # silent at the cap until there is room, exactly as observed
+            if budget < 800:
+                return "", budget, "stop"
+            return "PICK: 4\nWHY: because", 120, "stop"
+        b = self._backend(seq)
+        c = self._client(b)
+        resp = c.chat("judge", [{"role": "user", "content": "q"}])
+        self.assertEqual(b.seen, [200, 400, 800])
+        self.assertTrue(resp.text.startswith("PICK: 4"))
+        # the superseded attempts are escalations, not faults
+        self.assertEqual(c.empty_report(1)["n_empty"], 0)
+        self.assertEqual(len(c.escalated), 2)
+
+    def test_an_answer_is_not_retried_even_above_the_cap(self):
+        """Reasoning tokens are billed as completion and max_tokens does not
+        bound them: one relay in the real run answered after 28120 completion
+        tokens against a budget of 8000. Retrying those would pay for the
+        reasoning at every rung and return the answer it already had."""
+        b = self._backend(lambda budget: ("PICK: 3\nWHY: y", budget * 140, "stop"))
+        c = self._client(b)
+        resp = c.chat("judge", [{"role": "user", "content": "q"}])
+        self.assertEqual(b.seen, [200])
+        self.assertEqual(len(c.escalated), 0)
+        self.assertTrue(resp.text.startswith("PICK: 3"))
+
+    def test_a_reply_that_is_merely_short_is_not_retried(self):
+        b = self._backend(lambda budget: ("PICK: 2\nWHY: x", 30, "stop"))
+        c = self._client(b)
+        c.chat("judge", [{"role": "user", "content": "q"}])
+        self.assertEqual(b.seen, [200])
+        self.assertEqual(len(c.escalated), 0)
+
+    def test_still_silent_at_the_ceiling_is_recorded_as_a_fault(self):
+        b = self._backend(lambda budget: ("", budget, "stop"))
+        c = self._client(b)
+        resp = c.chat("judge", [{"role": "user", "content": "q"}])
+        self.assertEqual(resp.text, "")
+        self.assertEqual(b.seen[-1], c.escalation_ceiling)
+        rep = c.empty_report(1)
+        self.assertEqual(rep["n_empty"], 1)
+        self.assertEqual(rep["n_truncated"], 1)
+
+
+class TestRunGuardIsShared(unittest.TestCase):
+    """A guard one runner has and another does not is not a guard."""
+
+    class _FakeClient:
+        def __init__(self, rep):
+            self._rep = rep
+            self.escalated = []
+
+        def empty_report(self, n_calls):
+            return self._rep
+
+    def _rep(self, **kw):
+        base = {"n_escalated": 0, "escalated_by": {}, "n_empty": 0,
+                "n_calls": 100, "rate": 0.0, "budget_starved": 0, "by": {},
+                "n_truncated": 0, "truncated_rate": 0.0, "truncated_by": {}}
+        base.update(kw)
+        return base
+
+    def test_rejects_a_run_that_is_mostly_silence(self):
+        from petal.runguard import RunRejected, report_and_guard
+        c = self._FakeClient(self._rep(n_empty=81, rate=0.675,
+                                       by={"m | p | stop": 81}))
+        with self.assertRaises(RunRejected) as cm:
+            report_and_guard(c, 120, printer=lambda *a: None)
+        self.assertIn("67.5%", str(cm.exception))
+
+    def test_rejects_a_run_that_is_mostly_truncation(self):
+        from petal.runguard import RunRejected, report_and_guard
+        c = self._FakeClient(self._rep(n_truncated=40, truncated_rate=0.4,
+                                       truncated_by={"m | p": 40}))
+        with self.assertRaises(RunRejected):
+            report_and_guard(c, 100, printer=lambda *a: None)
+
+    def test_passes_a_clean_run_and_returns_the_report(self):
+        from petal.runguard import report_and_guard
+        c = self._FakeClient(self._rep(n_escalated=3,
+                                       escalated_by={"m | 200->400": 3}))
+        rep = report_and_guard(c, 100, printer=lambda *a: None)
+        self.assertEqual(rep["n_empty"], 0)
+
+    def test_both_paid_runners_call_it(self):
+        """The point of the module: the call site exists in both scripts."""
+        root = Path(__file__).resolve().parent.parent
+        for name in ("run_exp1.py", "llm_adversary.py"):
+            src = (root / "scripts" / name).read_text(encoding="utf-8")
+            self.assertIn("report_and_guard(", src, name)

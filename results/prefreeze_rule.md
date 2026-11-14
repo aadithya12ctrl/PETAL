@@ -977,3 +977,103 @@ incoherent. The judge was largely detecting the very thing these five relays
 illustrate; it simply reported inference as assertion. That is a conflation, not
 a hallucination, and the paper should say so -- it is the same conflation the
 convention above had to rule on.
+
+## Post-freeze harness change 4, 2026-11-14: the LLM adversary was measuring its own token budget
+
+**What was reported, and is now withdrawn.** On 2026-11-13 I reported the LLM
+adversary (H8) as: Full 0.667, Constraint-only 0.167, Decision-only 0.000, Drop
+0.000, and wrote that "both controls behave". Both figures of 0.000 were
+artefacts. In that 48-relay run, **Decision-only and Drop were 100% silent** --
+not one relay in either arm produced a parseable answer. The controls did not
+behave; they did not run.
+
+**The fault.** The adversary calls the `judge` role, whose `max_tokens` is 200 --
+sized for `VERDICT: YES`, which the detector's 857 judge calls fit into at a
+median of about 20 tokens. The adversary's prompt invites deliberation ("Reason
+from anything in the message, including indirect wording ... and what the
+message avoids saying"), and `deepseek-v4-pro` obliges. The reply was truncated
+at 200 tokens before any `PICK:` line appeared, `resp.text` came back empty, the
+parser found no pick, and `hit=False` was recorded -- indistinguishable in the
+output file from an attacker who read the relay and could not tell.
+
+`client.chat` already escalates a truncated call to a larger budget. It did not
+fire, because it tested `finish_reason == "length"` and **79 of the 81 silent
+replies in the 120-relay run came back with exactly 200 completion tokens and a
+finish_reason that was not "length"**. The documented signal was absent; the
+token count was conclusive and unread.
+
+**Why this one was dangerous rather than merely wrong.** Silence was not evenly
+distributed across arms:
+
+| arm | relays | silent | silence rate |
+|---|---|---|---|
+| full | 30 | 12 | 40% |
+| constraint_only | 30 | 19 | 63% |
+| decision_only | 30 | 24 | 80% |
+| drop | 30 | 26 | 87% |
+
+The thinner the relay, the longer the model deliberated, the sooner it hit the
+cap. Silence is scored as a failure to recover S, so the bug **suppressed
+measured recovery most in exactly the arms the hypothesis predicts to be
+lowest**. It manufactured the separation it was supposed to test. Had it gone
+unnoticed, the paper's H8 section would have read as its strongest result.
+
+The symptom that gives it away is visible in the discarded file: conditioning on
+the relays that did answer, Constraint-only recovers 5 of 11 (0.455) against a
+1-in-6 chance baseline -- not the 0.167 the unconditional table reports. That
+conditional figure is not a result either, because answering is a post-treatment
+variable the attacker selects into, but it is enough to show the headline was
+not measuring the attacker.
+
+**The two fixes.**
+
+1.  `petal/client._cut_off_at` replaces the bare `finish_reason` test.
+    `finish_reason == "length"` is still believed when present; otherwise an
+    **empty** reply whose `completion_tokens` reached the budget counts as cut
+    off. The restriction to empty replies is load-bearing: on this provider
+    `completion_tokens` includes reasoning tokens, which `max_tokens` does not
+    bound, and one relay in the run answered after 28120 completion tokens
+    against a budget of 8000. A bare `completion_tokens >= budget` would have
+    retried such calls at every rung of the ladder, paid for the reasoning each
+    time, and returned the answer it already held. A reply carrying text is an
+    answer; only silence at the cap is truncation.
+
+2.  `petal/runguard.report_and_guard` -- the empty/truncation guard, which
+    `run_exp1.py` has had since the first pilot and `llm_adversary.py` never
+    had. Both now call the same function, and the adversary additionally
+    refuses to write a results file when more than 5% of relays yield no
+    parseable `PICK` line. A guard one runner has and another does not is not a
+    guard. Each adversary record now also carries `finish_reason` and
+    `completion_tokens`, so `pick: null` can be read as a refusal or as a
+    budget fault without going back to the ledger.
+
+Seven tests pin all of it, including the exact shape of the bug (silent at the
+cap with `finish_reason: "stop"` must escalate) and the exact shape of the
+over-correction (text present above the cap must not).
+
+**What is discarded.** Both adversary runs, to `results/discarded/`:
+`llm_adversary_truncated_12perarm.json` (48 relays, 72.9% silent) and
+`llm_adversary_truncated_20261114.json` (120 relays, 67.5% silent).
+`results/llm_adversary.json` is absent rather than stale, so nothing can read
+it by accident. **H8 currently has no result.**
+
+**What the detector keeps.** The cascade's judge stage is unaffected and was
+checked rather than assumed: of 857 non-adversary judge calls, **zero** reached
+the 200-token cap and zero escalated, the longest being 131 tokens. The
+validation figures (Se 1.000 point, >= 0.691 worst case; Sp 0.988) and every
+Experiment 1 number stand. Experiment 2 used no judge calls.
+
+**Pre-registration status.** This is a harness fault and its repair, not a
+change of analysis: the adversary protocol, its arms, its candidate list and
+its seed are unchanged, and the re-run uses the same sampling frame. The first
+200-token call of each relay is already paid for and cached, so the re-run pays
+only for the escalation rungs the silent relays need -- about $1.5 on the
+observed cost of an answered relay ($0.018).
+
+**The habit this should become.** Three faults in this project now share one
+shape: a dataset of zeros with no error anywhere. Truncation at 900 tokens, the
+Windows ledger losing 294 of 320 appends, and this. In each case the failure
+produced clean-looking numbers in the direction of the hypothesis. The rule
+that follows is that **every rate computed over model calls must be reported
+beside the fraction of those calls that returned usable text**, and no table
+goes in the paper without it.

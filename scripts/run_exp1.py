@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from petal import paths, prereg
 from petal.arms import ARMS, KEY_ARMS, RunRecord, run_arm, write_runs
 from petal.client import LLMClient, MockBackend, count_messages, prices_from_catalogue
+from petal.runguard import report_and_guard
 from petal.config import Config, api_key, default_config
 from petal.mockagents import ScriptedAgents
 from petal.scenarios.schema import Scenario
@@ -175,47 +176,11 @@ def main() -> int:
     write_runs(out, records)
 
     # An empty completion is scored as a wrong answer, so a model that returns
-    # nothing produces a tidy dataset of zeros with no error anywhere. Check the
-    # rate before letting the run stand.
-    rep = client.empty_report(sum(r.calls for r in records))
-    if rep.get("n_escalated"):
-        # Not a fault: these are the calls the model ran past its budget on,
-        # retried at a larger one. Reported because the rate belongs in the
-        # paper -- it is how often the relay wanted more room than configured.
-        print("\nESCALATED after truncation: %d of %d calls (%.1f%%)"
-              % (rep["n_escalated"], rep["n_calls"],
-                 100 * rep["n_escalated"] / max(1, rep["n_calls"])))
-        for k, v in sorted(rep["escalated_by"].items()):
-            print("   %-50s %d" % (k, v))
-    if rep["n_empty"]:
-        print("\nEMPTY COMPLETIONS: %d of %d calls (%.1f%%)%s"
-              % (rep["n_empty"], rep["n_calls"], 100 * rep["rate"],
-                 "; %d exhausted max_tokens on reasoning" % rep["budget_starved"]
-                 if rep["budget_starved"] else ""))
-        for k, v in sorted(rep["by"].items()):
-            print("   %-60s %d" % (k, v))
-        if rep["rate"] > 0.02:
-            raise SystemExit(
-                "\nrefusing to report this run: %.1f%% of calls returned no text.\n"
-                "A completion with no content scores as a wrong answer, so these "
-                "would be indistinguishable from genuine failures.\n"
-                "If finish_reason is 'length' with reasoning_tokens at max_tokens, "
-                "the model is a reasoning model whose budget is too small: raise "
-                "max_tokens, turn thinking off (reasoning_enabled=False), or pin "
-                "an instruct variant." % (100 * rep["rate"]))
-
-    if rep["n_truncated"]:
-        print("\nTRUNCATED AT max_tokens: %d of %d calls (%.1f%%)"
-              % (rep["n_truncated"], rep["n_calls"], 100 * rep["truncated_rate"]))
-        for k, v in sorted(rep["truncated_by"].items()):
-            print("   %-50s %d" % (k, v))
-        if rep["truncated_rate"] > 0.02:
-            raise SystemExit(
-                "\nrefusing to report this run: %.1f%% of calls were cut off at "
-                "max_tokens.\nA relay truncated mid-sentence is scored as a bad "
-                "answer exactly as an empty one is, and is just as silent -- it "
-                "still returns plenty of text, so an empty-only check passes it.\n"
-                "Raise max_tokens for the affected role." % (100 * rep["truncated_rate"]))
+    # nothing produces a tidy dataset of zeros with no error anywhere. The
+    # check now lives in petal.runguard, because having it here and nowhere
+    # else is how the LLM adversary came to report a table built on 81 silent
+    # relays out of 120. Every paid runner calls the same function.
+    rep = report_and_guard(client, sum(r.calls for r in records))
 
     missing = sum(r.gap_scores_missing for r in records)
     if missing:

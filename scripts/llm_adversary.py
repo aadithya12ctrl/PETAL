@@ -40,6 +40,7 @@ from petal.arms import read_runs
 from petal.client import LLMClient, prices_from_catalogue
 from petal.config import Config, api_key, default_config
 from petal.implied import _candidate_propositions
+from petal.runguard import report_and_guard
 from petal.scenarios.schema import Scenario
 
 SYSTEM = (
@@ -145,9 +146,28 @@ def main() -> int:
         recs.append({"scenario_id": sc.id, "arm": r["arm"], "k": len(props),
                      "pick": pick, "truth_pos": truth_pos,
                      "hit": bool(pick == truth_pos), "text": resp.text,
+                     # Why the pick is None has to be in the file. A refusal
+                     # and a reply truncated at max_tokens are both `pick:
+                     # null`, and the first is a result about the adversary
+                     # while the second is a result about the token budget.
+                     "finish_reason": resp.finish_reason,
+                     "completion_tokens": resp.completion_tokens,
                      "cost_usd": resp.cost_usd})
         if i % 10 == 0 or i == len(sample):
             print("  %3d/%d  spend $%.4f" % (i, len(sample), client.meter.total))
+
+    # Guard before the table: an unparseable reply is scored as the attacker
+    # failing to identify S, and on 2026-11-14 that turned 81 truncated
+    # responses into a recovery curve. Silence is not evidence of privacy.
+    report_and_guard(client, len(recs))
+    silent = sum(1 for r in recs if r["pick"] is None)
+    if silent > 0.05 * max(1, len(recs)):
+        raise SystemExit(
+            "\nrefusing to report this adversary run: %d of %d relays (%.0f%%) "
+            "produced no parseable PICK line.\nAn attacker who was cut off is "
+            "not an attacker who could not tell, and the two are the same "
+            "number in this table." % (silent, len(recs),
+                                       100 * silent / max(1, len(recs))))
 
     out = Path(args.out) if args.out else (paths.RESULTS / "llm_adversary.json")
     out.write_text(json.dumps(recs, indent=1), encoding="utf-8")

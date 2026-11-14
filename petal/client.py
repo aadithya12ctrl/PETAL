@@ -215,6 +215,41 @@ class MockBackend(Backend):
 
 
 # --------------------------------------------------------------------- client
+def _cut_off_at(resp: "LLMResponse", budget: int) -> bool:
+    """Was this response cut off at its token budget?
+
+    `finish_reason == "length"` is the documented signal, and the one to
+    believe when it is there. It is not always there. In the LLM-adversary run
+    of 2026-11-14, **79 of 81 silent responses came back with exactly `budget`
+    completion tokens and a finish_reason that was not "length"** -- so the
+    escalation in `chat` never fired, the empty text was handed to the caller,
+    and a response the provider had truncated was scored as the adversary
+    failing to identify S.
+
+    That mattered because the silence was not evenly spread. Per arm the empty
+    rate was Full 40%, Constraint-only 63%, Decision-only 80%, Drop 87%: the
+    less the relay gave the attacker, the longer it deliberated, the more
+    likely it ran into the cap. Scoring those as misses therefore *understated*
+    recovery most in exactly the arms the hypothesis wants to be low. The bias
+    ran in favour of the result.
+
+    Counting tokens needs nothing from the provider, so it is the second test.
+    It applies only when the reply is *also* empty, and that restriction is
+    load-bearing rather than cautious: on this provider `completion_tokens`
+    includes reasoning tokens, which `max_tokens` does not bound. One relay in
+    the same run answered after 28120 completion tokens against a budget of
+    8000. A bare `completion_tokens >= budget` would retry such a call at every
+    rung of the ladder, pay for the reasoning each time, and end up returning
+    the answer it already had. So: a response carrying text is an answer; only
+    silence at the cap is truncation.
+    """
+    if resp.finish_reason == "length":
+        return True
+    if resp.text:
+        return False
+    return bool(resp.completion_tokens and resp.completion_tokens >= budget)
+
+
 class LLMClient:
     def __init__(self, cfg: Config, backend: Backend | None = None,
                  cache: DiskCache | None = None, meter: CostMeter | None = None,
@@ -331,7 +366,7 @@ class LLMClient:
             budget = self.cfg.model(role).max_tokens
         while True:
             resp = self._chat_once(role, messages, max_tokens=budget, **kw)
-            if resp.finish_reason != "length":
+            if not _cut_off_at(resp, budget):
                 break
             nxt = min(budget * 2, self.escalation_ceiling)
             if nxt <= budget:
@@ -342,10 +377,10 @@ class LLMClient:
                 "tag": kw.get("tag", ""),
             })
             budget = nxt
-        self._note_outcome(resp)
+        self._note_outcome(resp, budget)
         return resp
 
-    def _note_outcome(self, resp: LLMResponse) -> None:
+    def _note_outcome(self, resp: LLMResponse, budget: int | None = None) -> None:
         """Record the outcome of the call actually returned.
 
         Only the final attempt counts. An intermediate attempt that was cut
@@ -354,7 +389,10 @@ class LLMClient:
         whose data is sound.
         """
         usage = (resp.raw.get("usage") or {})
-        if resp.finish_reason == "length":
+        # Budget-capped counts as truncated even when the provider does not say
+        # "length" -- see `_cut_off_at`. Without the budget (older callers) the
+        # documented signal is all there is.
+        if _cut_off_at(resp, budget) if budget else resp.finish_reason == "length":
             self.truncated.append({
                 "role": resp.role, "model": resp.model, "provider": resp.provider,
                 "completion_tokens": resp.completion_tokens,
