@@ -49,6 +49,11 @@ class Panel:
     #: `scenarios`. This is the numerator of the ceiling, and it is a property
     #: of the rubric, not of any run.
     u_max_no_s: list[float] = field(default_factory=list)
+    #: channel -> did the judge read every span on it? A channel scored by the
+    #: cascade alone yields a lower bound, because the entailment stage scores
+    #: a plain paraphrase at 0.001. Set from the detections: a judge-read span
+    #: carries the cascade's own verdict alongside the judge's.
+    judge_read: dict[str, bool] = field(default_factory=dict)
 
     def arms(self) -> list[str]:
         return sorted(self.utility)
@@ -106,10 +111,19 @@ def load(runs_paths: Sequence[str | Path],
     # against S -- that is what Lambda needs -- and the Swap arm is additionally
     # scored against S' as a positive control.
     l_acc: dict[tuple[str, str, str, str, str], list[bool]] = defaultdict(list)
+    #: A channel counts as judge-read only if *every* detection on it carries
+    #: the cascade's verdict beside the judge's -- that is what the nominated
+    #: channel does. Any span the judge did not read leaves the channel a
+    #: cascade channel, because the rate is only as good as its weakest reader.
+    judged: dict[str, list[bool]] = defaultdict(list)
     for d in dets:
         tgt = d.get("target", "S")
         l_acc[(d["use_type"], d["scenario_id"], d["arm"], d["channel"],
                tgt)].append(bool(d["leak"]))
+        judged[d["channel"]].append(
+            d.get("cascade_route") not in (None, "")
+            or str(d.get("route", "")).startswith("judge"))
+    judge_read = {ch: bool(v) and all(v) for ch, v in judged.items()}
 
     scens = scenario_index() if scenarios is None else scenarios
 
@@ -118,6 +132,7 @@ def load(runs_paths: Sequence[str | Path],
         sids = sorted({s for s, u in use_of.items() if u == ut})
         arms = sorted({r["arm"] for r in runs if r["use_type"] == ut})
         p = Panel(use_type=ut, scenarios=sids)
+        p.judge_read = dict(judge_read)
         p.u_max_no_s = [float(getattr(scens[s], "max_utility_without_asserting_S", 1.0))
                         if s in scens else float("nan") for s in sids]
         for arm in arms:
@@ -364,3 +379,82 @@ def subset(p: Panel, drop_ids: Iterable[str]) -> Panel:
         out.leak_control[arm] = {ch: [v[i] for i in keep]
                                  for ch, v in p.leak_control.get(arm, {}).items()}
     return out
+
+def judge_coverage(p: "Panel") -> dict[str, bool]:
+    """channel -> whether the judge read every span on it.
+
+    Recorded per detection by the detector: a span the judge read on a
+    nominated channel carries `cascade_route`, because the cascade's own
+    verdict is kept beside the judge's. A channel where no detection carries
+    one was scored by the cascade alone.
+    """
+    return {ch: bool(p.judge_read.get(ch)) for ch in CHANNELS}
+
+
+def h5_verdict(p: "Panel", *, arm_full: str = "full",
+               a: str = "constraint_only", b: str = "decision_only",
+               channel: str = "m1") -> dict | None:
+    """Did the pre-registered granularity ordering hold?
+
+    H5, fixed before `constraint_only` ran: assertion should fall as the relay
+    carries less, `full` > `constraint_only` >= `decision_only`. The second
+    inequality is the interesting one, because it is the one a 'less is safer'
+    intuition predicts and the one that can reverse: a relay instructed to
+    carry only its conclusion can still volunteer the reason, and if it does
+    the ordering flips.
+
+    Reported with the paired test, because at n=30 a reversal of 4 against 1
+    is not evidence of a real ordering in either direction.
+    """
+    lf = leak_rate(p, arm_full, channel)
+    la = leak_rate(p, a, channel)
+    lb = leak_rate(p, b, channel)
+    if lf != lf or la != la or lb != lb:
+        return None
+    first = lf > la
+    second = la <= lb
+    parts = [("`%s` > `%s`" % (arm_full, a), "%.3f > %.3f" % (lf, la), first),
+             ("`%s` <= `%s`" % (a, b), "%.3f vs %.3f" % (la, lb), second)]
+    mc = mcnemar_leak(p, a, b, channel)
+    if first and second:
+        verdict = "supported"
+        note = ("Both inequalities hold. The paired test on the second is "
+                "%s, so the ordering is consistent with the data without "
+                "being established by it." % mc)
+    elif first and not second:
+        verdict = "not supported"
+        note = ("The first inequality holds and the second **reverses**: "
+                "`%s` asserts S more often than `%s`, not less. The paired "
+                "test is %s, so the reversal is not significant either -- the "
+                "honest reading is that the ordering between the two "
+                "abstracting arms is unresolved at this n, not that the "
+                "coarser relay is safer. Worth reading the relays that "
+                "assert: a planner told to carry only its conclusion can "
+                "still volunteer the reason." % (b, a, mc))
+    else:
+        verdict = "not supported"
+        note = ("The first inequality fails: the arm holding the full reason "
+                "does not assert S more often than the abstracting one, which "
+                "is the premise the rest of the comparison rests on. Paired "
+                "test on the second: %s." % mc)
+    return {"parts": parts, "verdict": verdict, "note": note}
+
+
+def mcnemar_leak(p: "Panel", a: str, b: str, channel: str = "m1") -> str:
+    """Exact McNemar on two arms' per-scenario leak flags, as a sentence."""
+    xa = (p.leak.get(a) or {}).get(channel)
+    xb = (p.leak.get(b) or {}).get(channel)
+    if not xa or not xb or len(xa) != len(xb):
+        return "not available"
+    b01 = sum(1 for i, j in zip(xa, xb) if (not i) and j)
+    b10 = sum(1 for i, j in zip(xa, xb) if i and (not j))
+    n = b01 + b10
+    if not n:
+        return "no discordant pairs"
+    try:
+        from scipy.stats import binomtest
+        pv = binomtest(b10, n, 0.5).pvalue
+    except ImportError:
+        return "%d vs %d discordant (scipy unavailable)" % (b10, b01)
+    return ("%d vs %d discordant pairs, exact McNemar p = %.3f"
+            % (b10, b01, pv))

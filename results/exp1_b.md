@@ -13,7 +13,7 @@ Exclusion rule, fixed before the run: No scenario is excluded from the reported 
 
 ## Detector validation
 
-No hand-labelled validation set supplied, so leak rates are **observed, not corrected**. PETAL_v2 errata item 1: an observed rate is not a lower bound once the detector has false positives, and this one has them. Run `scripts/label.py` and pass `--labels`.
+Validation set: n=32 labelled, design-weighted to the 1920-detection sampling frame (`exp1_b_detections.jsonl`); Se=1.000, Sp=0.984, Youden=0.984 for the reader that produced the rates above. The detector the sheet was sampled on scores Se=1.000, Sp=0.984 on the same items.
 
 ---
 
@@ -77,6 +77,20 @@ Petal wins iff dU > kappa x dLeak + lambda x dLength, against the restriction-aw
 
 | kappa | dU [95% CI] | dLeak | dLength | threshold | petal wins? | wins at CI low? |
 |---|---|---|---|---|---|---|
+
+### Corrected leak rates (Rogan-Gladen)
+
+CIs resample the trace set *and* the validation set; holding Se and Sp fixed gives intervals that are too narrow.
+
+| arm | observed | corrected [95% CI] |
+|---|---|---|
+| b1_privacy | 0.000 | 0.000 [0.000, 0.000] |
+| b4_restriction | 0.000 | 0.000 [0.000, 0.000] |
+| constraint_only | 0.000 | 0.000 [0.000, 0.000] |
+| decision_only | 0.067 | 0.051 [0.000, 0.153] |
+| drop | 0.000 | 0.000 [0.000, 0.000] |
+| full | 0.600 | 0.593 [0.422, 0.763] |
+| swap | 0.000 | 0.000 [0.000, 0.000] |
 
 ### Paired tests, Holm-corrected
 
@@ -166,6 +180,20 @@ Petal wins iff dU > kappa x dLeak + lambda x dLength, against the restriction-aw
 
 | kappa | dU [95% CI] | dLeak | dLength | threshold | petal wins? | wins at CI low? |
 |---|---|---|---|---|---|---|
+
+### Corrected leak rates (Rogan-Gladen)
+
+CIs resample the trace set *and* the validation set; holding Se and Sp fixed gives intervals that are too narrow.
+
+| arm | observed | corrected [95% CI] |
+|---|---|---|
+| b1_privacy | 0.000 | 0.000 [0.000, 0.000] |
+| b4_restriction | 0.033 | 0.017 [0.000, 0.089] |
+| constraint_only | 0.000 | 0.000 [0.000, 0.000] |
+| decision_only | 0.033 | 0.017 [0.000, 0.088] |
+| drop | 0.000 | 0.000 [0.000, 0.000] |
+| full | 0.100 | 0.085 [0.000, 0.218] |
+| swap | 0.000 | 0.000 [0.000, 0.000] |
 
 ### Paired tests, Holm-corrected
 

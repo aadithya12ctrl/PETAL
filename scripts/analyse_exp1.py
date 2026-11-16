@@ -679,11 +679,16 @@ def main() -> int:
 
     out = Path(args.out) if args.out else paths.RESULTS / "exp1.md"
     out.write_text("\n".join(L) + "\n", encoding="utf-8")
-    (paths.RESULTS / "exp1.json").write_text(json.dumps(out_json, indent=1,
-                                                        default=float),
-                                             encoding="utf-8")
+    # Derived from --out, not hardcoded. It was hardcoded to exp1.json, so
+    # analysing a second model wrote its markdown to the path asked for
+    # and its JSON over the first model's -- which is how agent_b's
+    # numbers came to sit in results/exp1.json under agent_a's name.
+    out_json_path = out.with_suffix(".json")
+    out_json_path.write_text(json.dumps(out_json, indent=1,
+                                        default=float),
+                             encoding="utf-8")
     print("\n".join(L))
-    print("\n-> %s\n-> %s" % (out, paths.RESULTS / "exp1.json"))
+    print("\n-> %s\n-> %s" % (out, out_json_path))
     return 0
 
 

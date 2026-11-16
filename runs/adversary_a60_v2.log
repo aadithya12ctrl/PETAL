@@ -1,0 +1,29 @@
+210 relays over 7 arms (34 each)
+[client] network error (ConnectionError); waiting 15s (attempt 1/8)
+   10/210  spend $5.6443
+   20/210  spend $5.9542
+[costmeter] WARNING: spent $6.0156 of $9.00
+[client] network error (ConnectionError); waiting 19s (attempt 1/8)
+[client] network error (ConnectionError); waiting 33s (attempt 2/8)
+[client] network error (ConnectionError); waiting 55s (attempt 3/8)
+[client] network error (ConnectionError); waiting 71s (attempt 4/8)
+[client] network error (ConnectionError); waiting 76s (attempt 5/8)
+[client] network error (ConnectionError); waiting 93s (attempt 6/8)
+[client] network error (ConnectionError); waiting 133s (attempt 7/8)
+[client] network error (ConnectionError); waiting 142s (attempt 8/8)
+Traceback (most recent call last):
+  File "c:\Users\shesh\Downloads\PETAL\scripts\llm_adversary.py", line 194, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "c:\Users\shesh\Downloads\PETAL\scripts\llm_adversary.py", line 139, in main
+    resp = client.chat("judge", msgs, tag="adv:%s:%s" % (sc.id, r["arm"]))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shesh\Downloads\PETAL\petal\client.py", line 368, in chat
+    resp = self._chat_once(role, messages, max_tokens=budget, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shesh\Downloads\PETAL\petal\client.py", line 334, in _chat_once
+    raw = self.backend.complete(spec, payload)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shesh\Downloads\PETAL\petal\client.py", line 170, in complete
+    raise RuntimeError("OpenRouter failed after %d attempts (%d rate-limited, "
+RuntimeError: OpenRouter failed after 9 attempts (0 rate-limited, 9 network): HTTPSConnectionPool(host='openrouter.ai', port=443): Max retries exceeded with url: /api/v1/chat/completions (Caused by NameResolutionError("HTTPSConnection(host='openrouter.ai', port=443): Failed to resolve 'openrouter.ai' ([Errno 11001] getaddrinfo failed)"))

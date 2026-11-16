@@ -1,0 +1,22 @@
+120 relays over 4 arms (60 each)
+   10/120  spend $4.3678
+   20/120  spend $4.5189
+   30/120  spend $4.5925
+   40/120  spend $4.6105
+   50/120  spend $4.6966
+   60/120  spend $4.7509
+   70/120  spend $4.8815
+   80/120  spend $4.9150
+   90/120  spend $4.9443
+  100/120  spend $4.9634
+  110/120  spend $5.0439
+  120/120  spend $5.0672
+
+| arm | n | k | recovers S | chance | bits (Fano, conservative) |
+|---|---|---|---|---|---|
+| constraint_only | 30 | 6 | 0.167 | 0.167 | 0.000 |
+| decision_only | 30 | 6 | 0.100 | 0.167 | 0.000 |
+| drop | 30 | 6 | 0.033 | 0.167 | 0.000 |
+| full | 30 | 6 | 0.533 | 0.167 | 0.171 |
+
+spend: $5.0672 -> results\llm_adversary.json
