@@ -1132,3 +1132,42 @@ per-scenario shuffle and therefore missed the cache entirely. That run then
 died on a DNS failure. The mistake is recorded here because the budget is
 reported in the paper: ledger $6.6453 of the $9.00 ceiling, of which $0.965
 bought nothing.
+
+## Logged deviation 1, 2026-11-16: the replication seed covers three of the four key arms
+
+**What was pre-registered.** `KEY_ARMS = ["full", "drop", "petal_text",
+"decision_only"]`, and the replication seed was to run `--arms key`.
+
+**What was run.** `--arms full,drop,decision_only` at seed 777. **`petal_text`
+is replicated only at the primary seed.**
+
+**Why.** The petal finds its own gaps, so the arm is only meaningful when the
+gap scan is entailment-backed; scored by a detector stronger than the one it
+used to find its gaps, its leak rate is an upper bound and its delta a lower
+bound. The entailment scores come from a GPU pass run off this machine, keyed
+by `sha256(premise || hypothesis)`. Seed 777 produces different drafts, hence
+different premises, hence no coverage from the primary seed's score cache --
+`run_exp1.py` refuses the run rather than treating unscored spans as clean.
+Replicating `petal_text` properly therefore required a third off-machine
+scoring pass. The author declined it.
+
+**Why declining is defensible.** The headline this paper reports is
+delta/ceiling on `constraint_only` and `decision_only`, and the question the
+replication answers is whether that headline is specific to one seed. Both of
+those arms are replicated, as are `full` and `drop`, which are the numerator
+and the floor. `petal_text` is a secondary arm: it tests whether a
+gap-and-refill defence beats a constraint relay, not whether separability
+exists.
+
+**What the paper must say, and not say.** The robustness section reports the
+replication as covering `full`, `drop` and `decision_only`, names
+`petal_text` as not replicated, and gives this reason. What it may not do is
+report a seed-robustness claim that reads as covering the key arms, or quote
+the petal's numbers inside a passage about replication. One seed for the petal
+is a single estimate, and the paper says so.
+
+**The alternative, for the record.** Running the seed-777 petal with the
+primary seed's score cache would have left every span unscored and the gap
+scan lexical. That is worse than not replicating the arm, because it would
+produce a number that looks like a replication of the petal and is a
+replication of a weaker detector.
