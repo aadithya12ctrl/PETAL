@@ -1,0 +1,44 @@
+120 relays over 4 arms (60 each)
+[costmeter] WARNING: spent $6.2195 of $9.00
+   10/120  spend $6.4400
+[client] network error (ChunkedEncodingError); waiting 18s (attempt 1/8)
+[client] network error (ConnectionError); waiting 34s (attempt 2/8)
+[client] network error (ConnectionError); waiting 56s (attempt 3/8)
+[client] network error (ConnectionError); waiting 63s (attempt 4/8)
+[client] network error (ChunkedEncodingError); waiting 17s (attempt 1/8)
+[client] network error (ConnectionError); waiting 35s (attempt 2/8)
+[client] network error (ConnectionError); waiting 55s (attempt 3/8)
+   20/120  spend $6.4938
+   30/120  spend $6.5062
+   40/120  spend $6.5223
+   50/120  spend $6.5368
+   60/120  spend $6.5506
+   70/120  spend $6.5668
+   80/120  spend $6.5914
+   90/120  spend $6.6220
+  100/120  spend $6.6297
+  110/120  spend $6.6376
+  120/120  spend $6.6453
+
+ESCALATED after truncation: 104 of 120 calls (86.7%)
+   deepseek/deepseek-v4-pro | 1600->3200              5
+   deepseek/deepseek-v4-pro | 200->400                81
+   deepseek/deepseek-v4-pro | 3200->6400              3
+   deepseek/deepseek-v4-pro | 400->800                8
+   deepseek/deepseek-v4-pro | 6400->8000              1
+   deepseek/deepseek-v4-pro | 800->1600               6
+
+EMPTY COMPLETIONS: 1 of 120 calls (0.8%)
+   deepseek/deepseek-v4-pro | GMICloud | stop                   1
+
+TRUNCATED AT max_tokens: 1 of 120 calls (0.8%)
+   deepseek/deepseek-v4-pro | GMICloud                1
+
+| arm | n | k | recovers S | chance | bits (Fano, conservative) |
+|---|---|---|---|---|---|
+| constraint_only | 30 | 6 | 0.267 | 0.167 | 0.000 |
+| decision_only | 30 | 6 | 0.333 | 0.167 | 0.004 |
+| drop | 30 | 6 | 0.200 | 0.167 | 0.000 |
+| full | 30 | 6 | 0.833 | 0.167 | 0.941 |
+
+spend: $6.6453 -> C:\Users\shesh\Downloads\PETAL\results\llm_adversary.json

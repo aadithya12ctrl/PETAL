@@ -1077,3 +1077,58 @@ produced clean-looking numbers in the direction of the hypothesis. The rule
 that follows is that **every rate computed over model calls must be reported
 beside the fraction of those calls that returned usable text**, and no table
 goes in the paper without it.
+
+### Outcome of the repair, 2026-11-16
+
+The adversary was re-run on the same 120 relays, same seed, same frame. The
+escalation fired **104 times** (81 of them the 200->400 rung), and silence fell
+from 67.5% of relays to **0.8%** -- one relay, still counted as a miss. Silence
+is now flat across arms (0, 0, 1, 0) where it had sloped 12, 19, 24, 26.
+
+What the corrected measurement says, against what was withdrawn:
+
+| arm | withdrawn | corrected | 95% CI |
+|---|---|---|---|
+| full | 0.667 | **0.833** | [0.653, 0.944] |
+| decision_only | **0.000** | 0.333 | [0.173, 0.528] |
+| constraint_only | 0.167 | 0.267 | [0.123, 0.459] |
+| drop | **0.000** | 0.200 | [0.077, 0.386] |
+
+Three things change in the write-up as a result.
+
+1.  **Drop is not zero and was never going to be.** The attacker reads the
+    permitted case file, so 0.200 is the floor from permitted information --
+    the LLM-adversary counterpart of Phi_floor. Every defended arm is measured
+    against *that*, not against the 1/6 chance baseline. The withdrawn version
+    had the controls at zero, which flattered the design by making the floor
+    disappear.
+
+2.  **The claim that survives is about Full, and it is strong.** Paired over
+    the same 30 scenarios: full - drop = +0.633 [+0.467, +0.800], 19 discordant
+    scenarios to 0, McNemar p < 0.0001, Fano lower bound 0.941 bits of 2.585.
+
+3.  **The claim about the defended arms is a null, and must be written as
+    one.** decision_only - drop = +0.133 [-0.067, +0.333], p = 0.34;
+    constraint_only - drop = +0.067 [-0.100, +0.233], p = 0.73. At n = 30 the
+    interval for constraint_only reaches +0.233, so these data cannot
+    distinguish "the constraint gives the attacker nothing" from "the
+    constraint gives the attacker a 23-point advantage". The sentence the paper
+    can support is *this attacker did not convert the constraint into an
+    identification at a rate this study could detect* -- not that it could not
+    be done. That is weaker than the withdrawn version implied and it is what
+    the data say.
+
+Note the ordering: decision_only (0.333) sits numerically *above*
+constraint_only (0.267), the reverse of the assertion-detector ordering, and
+the difference is nowhere near significant (p = 0.73). The direction is the one
+the closed-form decision-implied leakage predicts -- the answer alone carries
+up to 1.585 bits -- at a magnitude 30 paired scenarios cannot resolve. Written
+up in `results/llm_adversary.md`.
+
+**Cost of the repair.** $0.42 for the corrected run. A further **$0.965 was
+wasted** before it: the first relaunch omitted `--arms`, so the sampler drew 7
+arms x 34 relays instead of 4 x 30, which changed the sample and every
+per-scenario shuffle and therefore missed the cache entirely. That run then
+died on a DNS failure. The mistake is recorded here because the budget is
+reported in the paper: ledger $6.6453 of the $9.00 ceiling, of which $0.965
+bought nothing.
