@@ -13,7 +13,7 @@ Exclusion rule, fixed before the run: No scenario is excluded from the reported 
 
 ## Detector validation
 
-Validation set: n=50 labelled, design-weighted to the 1920-detection frame; Se=1.000, Sp=0.984, Youden=0.984.
+Validation set: n=50 labelled, design-weighted to the 1920-detection sampling frame (`exp1_a_detections_cascade.jsonl`); Se=1.000, Sp=0.984, Youden=0.984 for the reader that produced the rates above. The detector the sheet was sampled on scores Se=1.000, Sp=0.984 on the same items.
 
 ---
 
@@ -50,9 +50,9 @@ Fixed before the arm was run: `full` > `constraint_only` >= `decision_only` on r
 | inequality | observed | holds? |
 |---|---|---|
 | `full` > `constraint_only` | 0.867 > 0.200 | yes |
-| `constraint_only` <= `decision_only` | 0.200 vs 0.367 | yes |
+| `constraint_only` >= `decision_only` | 0.200 vs 0.367 | **no** |
 
-**Verdict: supported.** Both inequalities hold. The paired test on the second is 4 vs 9 discordant pairs, exact McNemar p = 0.267, so the ordering is consistent with the data without being established by it.
+**Verdict: not supported.** The first inequality holds and the second **reverses**: `decision_only` asserts S more often than `constraint_only`, not less. The paired test is 4 vs 9 discordant pairs, exact McNemar p = 0.267, so the reversal is not significant either -- the honest reading is that the ordering between the two abstracting arms is unresolved at this n, not that the coarser relay is safer. Worth reading the relays that assert: a planner told to carry only its conclusion can still volunteer the reason.
 
 ### Separability delta
 
@@ -153,9 +153,9 @@ Fixed before the arm was run: `full` > `constraint_only` >= `decision_only` on r
 | inequality | observed | holds? |
 |---|---|---|
 | `full` > `constraint_only` | 0.767 > 0.033 | yes |
-| `constraint_only` <= `decision_only` | 0.033 vs 0.133 | yes |
+| `constraint_only` >= `decision_only` | 0.033 vs 0.133 | **no** |
 
-**Verdict: supported.** Both inequalities hold. The paired test on the second is 1 vs 4 discordant pairs, exact McNemar p = 0.375, so the ordering is consistent with the data without being established by it.
+**Verdict: not supported.** The first inequality holds and the second **reverses**: `decision_only` asserts S more often than `constraint_only`, not less. The paired test is 1 vs 4 discordant pairs, exact McNemar p = 0.375, so the reversal is not significant either -- the honest reading is that the ordering between the two abstracting arms is unresolved at this n, not that the coarser relay is safer. Worth reading the relays that assert: a planner told to carry only its conclusion can still volunteer the reason.
 
 ### Separability delta
 

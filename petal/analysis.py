@@ -412,9 +412,17 @@ def h5_verdict(p: "Panel", *, arm_full: str = "full",
     if lf != lf or la != la or lb != lb:
         return None
     first = lf > la
-    second = la <= lb
+    # The registered direction is `constraint_only` >= `decision_only`: assertion
+    # should FALL as the relay carries less. This line read `la <= lb` until
+    # 2026-11-17, i.e. it tested the reverse of the prediction, so a reversal
+    # was scored as a confirmation and H5 was reported "supported" in both
+    # models' write-ups when it had in fact reversed. The `elif first and not
+    # second` branch below -- which states the reversal correctly -- could never
+    # fire. A hypothesis test whose inequality can be silently flipped to match
+    # the data is worse than no test, so the direction is pinned by a test.
+    second = la >= lb
     parts = [("`%s` > `%s`" % (arm_full, a), "%.3f > %.3f" % (lf, la), first),
-             ("`%s` <= `%s`" % (a, b), "%.3f vs %.3f" % (la, lb), second)]
+             ("`%s` >= `%s`" % (a, b), "%.3f vs %.3f" % (la, lb), second)]
     mc = mcnemar_leak(p, a, b, channel)
     if first and second:
         verdict = "supported"

@@ -65,7 +65,11 @@ The question that is about the agents is whether they carry S *around* the slot 
 | random_dropout | 3 | 20 | 1.000 | 0.000 | 5.555 |  |
 | random_dropout | 4 | 20 | 1.000 | 0.000 | 5.555 |  |
 
-The `none` schedule is the reference: it writes no slot, so its no-slot column is the whole note and its numbers should match the table above. Where a defended schedule's no-slot row is near the `none` row, the ladder is coarsening a symbol while the prose around it carries S regardless.
+**This table is the positive control, and it passes.** The `none` schedule carries the *exact* value in its slot every hop (`ladder.emit`), so it does write one, and `strip_slot` removes it. That is the point: in the table above, with the carried note present, the probe recovers 0.635-1.482 conservative bits from `none`; here, with that one line gone, it recovers 0.000. The excision takes about 3% of the note (one line of roughly 3000 characters), so 97% of the agents' own prose is still in front of the probe. A probe that reads the condition when the line is there and nothing when it is not is working, which is what licenses reading a zero here as absence rather than blindness.
+
+An earlier version of this note claimed `none` writes no slot and that its two columns should therefore agree. That was wrong about this code, and the disagreement it predicted was briefly mistaken for a broken probe.
+
+Where a defended schedule's no-slot row is near the `none` row *of the table above*, the ladder is coarsening a symbol while the prose around it carries S regardless. No schedule does that here.
 
 ## Task utility by schedule
 

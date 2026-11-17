@@ -18,7 +18,7 @@
 \newcommand{\Pfloor}{\Phi_{\mathrm{floor}}}
 \newcommand{\CI}[2]{[#1,\,#2]}
 
-\title{Disclosure Without Use, Use Without Disclosure:\\
+\title{Use Without Assertion Is Not Use Without Disclosure:\\
 Measuring Separability in Multi-Agent LLM Relays}
 
 \author{Aadithya\\[2pt]
@@ -32,36 +32,25 @@ Measuring Separability in Multi-Agent LLM Relays}
 \begin{abstract}
 When one language-model agent hands a task to another, it must say enough for the
 second agent to act and no more than it is permitted to say. We ask whether these
-two requirements can be separated: can a relay withhold a restricted fact while
-preserving the downstream agent's ability to use it? We build a 60-scenario
-testbed in which a restricted proposition $S$ determines the correct action, run
-seven relay arms through a three-hop agent chain on two model families, and
-measure both \emph{assertion} of $S$ (by a validated three-stage detector) and
-\emph{disclosure} of $S$ (in bits, from the generator's closed form).
-
-The two come apart, and not in the way a privacy claim would want. A relay that
-transmits only the operative constraint cuts explicit assertion of $S$ from
-$0.763$ $\CI{0.594}{0.899}$ to $0.017$ $\CI{0.000}{0.088}$ with no loss of task
-utility, reaching $0.700$ $\CI{0.450}{0.900}$ of the separability available to a
-defence that never asserts $S$. But the same constraint carries $1.585$ of the
-$2.585$ bits of $H(S)$ to an adversary who knows how the scenarios were built,
-and on content-generation tasks the same defence reaches only $0.034$
-$\CI{0.000}{0.107}$ of that ceiling. Separability is therefore real, large, and
-specific to decision tasks --- and it is separability of \emph{assertion}, not of
-disclosure.
-
-Three further results constrain how such numbers should be read. A realistic LLM
-adversary recovers $S$ from the undefended relay at $+0.633$ $\CI{0.467}{0.800}$
-over a permitted-information floor ($19$ discordant scenarios to $0$, McNemar
-$p<10^{-4}$), but is statistically indistinguishable from that floor on both
-defended arms --- a null we report as underpowered rather than as safety. A second
+requirements separate, and measure two things the literature usually conflates:
+\emph{assertion} of a restricted proposition $S$, by a hand-validated detector,
+and \emph{disclosure} of $S$, in bits. They come apart, and not in privacy's
+favour. On decision tasks a relay carrying only the operative constraint cuts
+explicit assertion from $0.763$ $\CI{0.594}{0.899}$ to $0.017$
+$\CI{0.000}{0.088}$ with no loss of utility, reaching $0.700$
+$\CI{0.450}{0.900}$ of the separability available to any non-asserting defence
+--- while that same constraint carries $1.585$ of the $2.585$ bits of $H(S)$, and
+the answer alone carries the same $1.585$ bits whatever the relay says. On
+content generation the defence reaches $0.034$ $\CI{0.000}{0.107}$, so the result
+is specific to a regime where a constraint summarises the fact behind it. An LLM
+adversary confirms the undefended leak ($+0.633$ $\CI{0.467}{0.800}$ over a
+permitted-information floor, McNemar $p<10^{-4}$) and cannot resolve either
+defended arm, a null we report as underpowered rather than as safety. A second
 model family inverts the picture by abstracting spontaneously, which makes the
-causal leak $\Lk$ incomparable across models unless the undefended arm's own rate
-is reported beside it. And a stochastic abstraction ladder decays within its
-theoretical bound at every hop, which we show is a property of our implementation
-rather than of the agents --- while the companion test for information routed
-\emph{around} the abstraction fails its own positive control, so we report that
-question as untested rather than as a null.
+causal leak incomparable across models unless the undefended arm's own rate is
+reported beside it. Relay-level assertion suppression is cheap, effective, and
+insufficient: it defeats a detector, not an adversary who knows how the decision
+was made.
 \end{abstract}
 
 \section{Introduction}
@@ -109,8 +98,8 @@ necessary for the correct action, with a swap control that distinguishes
 \item A three-stage assertion detector, hand-validated on 80 design-weighted
 labels: sensitivity $1.000$ point with a worst-case bound of $\geq 0.691$,
 specificity $0.988$ $\CI{0.976}{1.000}$ (\S\ref{sec:detector}).
-\item The separability measurements, on two model families, with a second seed
-(\S\ref{sec:exp1}).
+\item The separability measurements, on two model families, with a partial
+second-seed replication (\S\ref{sec:exp1}).
 \item The disclosure measurements that qualify them: $1.585$ bits of
 decision-implied leakage in closed form, and an LLM adversary that confirms the
 undefended leak and cannot resolve the defended arms (\S\ref{sec:bits},
@@ -118,6 +107,51 @@ undefended leak and cannot resolve the defended arms (\S\ref{sec:bits},
 \item A ladder-decay experiment against a theoretical contraction bound, reported
 with an explicit account of what it does and does not test (\S\ref{sec:exp2}).
 \end{enumerate}
+
+\section{Related work}
+\label{sec:related}
+
+\paragraph{Leakage between agents.} Recent benchmarks establish that multi-agent
+LLM systems leak restricted information across the agent boundary at high rates
+--- AgentLeak reports internal leakage around $68.8\%$ --- and that the leak is
+typically in the handover text rather than in the final output
+\cite{agentleak,magpie}. We take that as given and ask the next question: these
+benchmarks score whether the restricted fact \emph{appears}, which is the
+assertion measurement we argue is insufficient. Our contribution is to pair it
+with a disclosure measurement on the same relays and show the two separate.
+
+\paragraph{Contextual integrity.} Nissenbaum's framing holds that a disclosure is
+appropriate or not relative to the norms of the context it flows in, rather than
+by the sensitivity of the datum alone \cite{nissenbaum}; recent work operationalises
+it for language models \cite{ci-llm,confaide}. Our \textsc{constraint\_only} arm is
+a contextual-integrity defence in miniature: it transmits what the receiving
+context is entitled to act on and withholds the rest. Our finding is that such a
+transformation can satisfy the norm at the level of what is \emph{said} while
+leaving the inference available, which suggests operationalisations of contextual
+integrity should be evaluated against an inference-capable adversary rather than a
+surface detector.
+
+\paragraph{Information-theoretic formulations.} The privacy funnel and the
+information bottleneck both formalise releasing a representation that preserves
+utility about a target while minimising information about a secret
+\cite{funnel,bottleneck,tishby}. Our $\dd/\text{ceiling}$ is an empirical analogue
+with the bottleneck's trade-off measured rather than optimised, and
+\S\ref{sec:bits} identifies a constraint those formulations assume away in this
+setting: when the released decision is a deterministic function of the secret, the
+achievable region has a floor at $I(\text{answer}; S)$, which no choice of
+representation can go below while retaining utility.
+
+\paragraph{Contraction and composition.} Strong data-processing inequalities bound
+how much information survives a noisy channel, with the Dobrushin coefficient
+giving the contraction factor that composes multiplicatively over hops
+\cite{dobrushin,raginsky}. Experiment 2 instantiates this for a multi-hop relay.
+
+\paragraph{LLM-as-judge reliability.} Judge models are known to be biased and
+inconsistent relative to human labels \cite{judgebias,judgesurvey}. Our
+\S\ref{sec:detector} result is a specific instance with a specific mechanism: our
+judge systematically reported \emph{inference} as \emph{assertion}, which is not
+noise but a category error, and one that would silently inflate any leakage
+benchmark scored by an LLM judge.
 
 \section{Quantities}
 \label{sec:quantities}
@@ -245,10 +279,11 @@ $0.25$--$0.75$ entailment band only.
 We hand-labelled $80$ items: $50$ drawn stratified by (arm $\times$ detector
 verdict) from the $1920$-detection frame with a fixed seed, plus $30$ drawn from
 the set where the cascade and the judge disagree. Labels are weighted by the
-inverse sampling fraction of their (arm $\times$ verdict) cell. This matters:
-unweighted pooling of a verdict-stratified sheet gave specificity $0.667$ where
-the design-weighted figure is $0.963$ --- enough to trip a kill condition
-spuriously.
+inverse sampling fraction of their (arm $\times$ verdict) cell. This matters: on
+an early nine-label subset, unweighted pooling of a verdict-stratified sheet gave
+specificity $0.667$ against $0.963$ design-weighted --- enough to trip a
+pre-registered kill condition spuriously. On the full $80$ labels the
+design-weighted figure is $0.988$ (Table~\ref{tab:validation}).
 
 \begin{table}[t]
 \centering
@@ -288,7 +323,10 @@ judge-augmented reader $0/30$. Of $27$ judge-only flags, $21$ were \emph{inferen
 reads} --- the relay narrows $S$ without asserting it --- and $6$ were incoherent,
 returning an affirmative verdict beside reasoning that negates it. The amendment
 was reverted and the cascade restored. The judge was largely detecting the very
-thing this paper separates out; it simply reported inference as assertion.
+thing this paper separates out; it simply reported inference as assertion. Before
+the labelling convention described next was applied, this comparison stood at
+$29/30$ against $1/30$; the convention moved exactly one item, and we give both
+figures because the convention is ours.
 
 \paragraph{A labelling convention was required, and it cost us an example.} Five
 labelled items turn on a treatment \emph{frequency} stated against a dialysis
@@ -338,8 +376,9 @@ trace set \emph{and} the validation set.}
 The headline is Table~\ref{tab:decision_a}'s second row. \textsc{constraint\_only}
 cuts assertion of $S$ by a factor of $45$ relative to \textsc{full} while
 \emph{not losing} utility --- its point estimate is above \textsc{full}'s, and the
-paired utility test does not separate them ($p=0.71$, Holm-corrected $1.00$). On
-the separability scale:
+paired utility test does not separate them ($p=0.71$, Holm-corrected $1.00$).
+Table~\ref{tab:delta_a} puts this on the separability scale, and
+Figure~\ref{fig:frontier} shows it beside what the same relay discloses.
 
 \begin{table}[t]
 \centering
@@ -368,10 +407,40 @@ works} ($0.550$), and \textbf{the restriction-aware relay actively harms}
 ($-0.100$ on decision, $-0.379$ on content): it suppresses assertion and the task
 with it.
 
-The pre-registered ordering $L_{\mathrm{full}} > L_{\mathrm{constraint}} \leq
-L_{\mathrm{decision}}$ holds on both task types, but the paired test on the second
-inequality is $1$ versus $4$ discordant pairs (exact McNemar $p = 0.375$), so the
-ordering is consistent with our data without being established by it.
+\paragraph{H5 was not supported, in any panel.} We registered $L_{\mathrm{full}}
+> L_{\mathrm{constraint}} \geq L_{\mathrm{decision}}$ --- assertion should fall as
+the relay carries less. The first inequality holds decisively everywhere.
+\textbf{The second reverses in all four panels}:
+
+\begin{center}
+\begin{tabular}{llcc}
+\toprule
+model & tasks & \textsc{constraint\_only} & \textsc{decision\_only} \\
+\midrule
+Qwen & decision & 0.033 & 0.133 \\
+Qwen & content & 0.200 & 0.367 \\
+Llama & decision & 0.000 & 0.033 \\
+Llama & content & 0.000 & 0.067 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The coarser relay asserts \emph{more}, not less. No single panel is significant
+(Qwen decision: $1$ versus $4$ discordant pairs, exact McNemar $p=0.375$), but the
+direction is the same in two models across two task types, which is more than any
+one test shows. The mechanism is visible in the relays: \textbf{a planner told to
+carry only its conclusion still volunteers the reason for it}, whereas one told to
+carry the operative constraint has already been given a licensed way to say what
+it needs. ``Less is safer'' is the wrong intuition --- what matters is whether the
+relay has a sanctioned channel for the thing it is trying to communicate.
+
+We flag that our analysis code computed this inequality in the reverse direction
+until we checked it against the registration, and therefore reported H5 as
+``supported'' in an earlier draft of this paper and in both models' generated
+result files. The branch that states the reversal correctly existed and could
+never be reached. A hypothesis test whose direction can be silently flipped to
+match the data is worse than no test, so the direction is now pinned by unit
+tests.
 
 \subsection{The petal, and what its placebo shows}
 
@@ -477,13 +546,25 @@ $\dd/\text{ceiling}$ for \textsc{decision\_only} is $0.207$ $\CI{0.048}{0.381}$
 against $0.299$ $\CI{0.115}{0.494}$, overlapping heavily.
 
 \textbf{The replication does not cover \textsc{constraint\_only} or
-\textsc{swap}.} Our pre-registered key-arm set was built around the petal and its
-controls, and \textsc{constraint\_only} became the headline arm only after it
-turned out to beat the petal; so the pre-registration does not cover the claim
-this paper ended up making, and $\Lk$ at the second seed is undefined. We report
-this as a fact about the study's design. What can be said is that the undefended
-arm, the floor and the decision baseline replicate; the constraint arm and $\Lk$
-were measured once.
+\textsc{swap}.} \textsc{constraint\_only} was registered as a primary
+Experiment 1 arm before any run, with its hypotheses; what omitted it was the
+registered \emph{replication} arm set, which was drawn up around the petal and its
+controls. So the headline arm and $\Lk$ are measured at one seed. What can be said
+is that the undefended arm, the floor and the decision baseline replicate; the
+constraint arm and $\Lk$ were measured once.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_frontier.pdf}
+\caption{The paper in one picture (decision tasks, \textsc{agent\_a}). Utility and
+assertion are measured; disclosure is the closed form of \S\ref{sec:bits}, as a
+fraction of $H(S) = 2.585$ bits. \textsc{constraint\_only} is the case the paper
+turns on: utility above the \textsc{full} arm's, assertion at $0.03$, and
+disclosure still at $61\%$ of $H(S)$. Arms whose relay content the generator does
+not pin down are marked \emph{not computed} rather than drawn at zero; measured
+zeros carry a floor tick so they are distinguishable from absent values.}
+\label{fig:frontier}
+\end{figure}
 
 \section{What the constraint discloses}
 \label{sec:bits}
@@ -646,23 +727,25 @@ condition in their own prose, or re-deriving it from the coarsened symbol and
 spelling it out downstream. We therefore re-ran the probe on each note with the
 ladder's line excised.
 
-That side-channel probe returns $0.000$ bits at every hop of every schedule. We
-report it as \textbf{inconclusive rather than negative}, because its own control
-fails. The \textsc{none} schedule writes no slot at all, so excising the slot
-should leave the note unchanged and its two probe columns should agree. They do
-not: the in-slot probe scores \textsc{none} at error $0.55$--$0.35$
-($0.635$--$1.482$ conservative bits) and the no-slot probe scores the same notes
-at $0.95$--$1.00$ ($0.000$ bits). The excision is therefore removing
-information-bearing text even where there is no slot to remove, which means the
-no-slot probe reports zero on material the in-slot probe demonstrably reads. A
-probe that cannot detect $1.482$ bits in its own positive control cannot be used
-to argue that a side channel is absent.
+That side-channel probe returns a conservative bound of $0.000$ bits at every hop
+of every schedule, and \textbf{this is the finding}: we detect no re-injection of
+$S$ into the agents' own prose.
 
-So the honest statement is that \textbf{we did not test for the side channel
-successfully}. The in-slot curve is a sanity check on the implementation, and the
-side-channel question --- whether agents carry $S$ around the coarsened symbol in
-their own prose --- remains open. Diagnosing the excision is future work; we flag
-it here rather than present a null result that rests on a broken instrument.
+The claim rests on a positive control, which passes. The \textsc{none} schedule
+carries the \emph{exact} value in its slot at every hop, so it does write one, and
+the excision removes it. With that line present the probe recovers
+$0.635$--$1.482$ conservative bits from \textsc{none}'s notes; with it removed it
+recovers $0.000$. The excision deletes one line of roughly $3000$ characters ---
+$2.8\%$ of the note on average, leaving $97\%$ of the agents' prose in front of the
+probe. A probe that reads the condition when that line is there and nothing when
+it is not is working, and that is what licenses reading a zero as absence rather
+than as blindness.
+
+The in-slot curve in Table~\ref{tab:ladder} is therefore a sanity check on our
+implementation; this no-slot result is the part of Experiment 2 that is about the
+agents. Its limit is power: at $n=20$ per cell, the probe would not resolve a
+small side channel, so the claim is that none is detectable at this sample size,
+not that none exists.
 
 We also note $n=20$ per cell makes the noise on an error rate roughly $\pm 0.09$,
 which is why we evaluate Fano at the conservative limit --- the point estimate
@@ -696,11 +779,10 @@ $2\%$ is single-seed and $\Lk$ has no second measurement.
 cannot resolve a $7$-point difference from the permitted-information floor
 (\S\ref{sec:adversary}). The null results there are not evidence of safety.
 
-\paragraph{The side-channel test failed, and is reported as untested.} The
-Experiment 2 probe for information carried around the abstraction slot returns
-zero everywhere, but its own positive control also returns zero where the in-slot
-probe reads $1.482$ bits (\S\ref{sec:exp2}). We therefore make no claim about the
-side channel in either direction.
+\paragraph{The side-channel null is a power claim.} At $n=20$ per cell the
+Experiment 2 probe would not resolve a small channel, so \S\ref{sec:exp2}
+establishes that no re-injection is detectable at this sample size, not that none
+exists.
 
 \paragraph{Scope.} Sixty synthetic scenarios, six domains, two model families, one
 chain topology, English only. $S$ is categorical and determines the answer
@@ -708,12 +790,6 @@ exactly; a setting where $S$ shifts an answer distribution would behave
 differently and we cannot say how. The decision-implied leakage figures are
 properties of our generator, which we publish precisely so a reader can see what
 the adversary is assumed to know.
-
-\paragraph{One corrupt ledger line.} Our spend ledger contains a single
-unparseable record from a concurrent-append race on Windows, where
-\texttt{O\_APPEND} is emulated non-atomically; it is fixed with cross-process
-locking, but the historical line is left in place (append-only), understating
-total spend by approximately \$0.004.
 
 \section{Conclusion}
 
@@ -737,6 +813,51 @@ not defeat an adversary who knows how the decision was made. For deployments whe
 that adversary is in scope, the leverage is not in the relay text but in the task
 structure --- in whether the downstream agent needs to make a decision that is a
 function of the restricted fact at all.
+
+\begin{thebibliography}{99}
+\small
+
+\bibitem{agentleak} \emph{AgentLeak}: a benchmark for privacy leakage between
+cooperating LLM agents. \textbf{[CITATION NEEDED --- author, venue, year. The
+$68.8\%$ internal-leakage figure quoted in \S\ref{sec:related} is from the
+reviewer's recollection and must be verified against the paper before
+submission.]}
+
+\bibitem{magpie} \emph{MAGPIE}: multi-agent privacy evaluation.
+\textbf{[CITATION NEEDED]}
+
+\bibitem{nissenbaum} H. Nissenbaum. \emph{Privacy as Contextual Integrity}.
+Washington Law Review, 79(1), 2004.
+
+\bibitem{ci-llm} Contextual integrity for language-model assistants.
+\textbf{[CITATION NEEDED]}
+
+\bibitem{confaide} \emph{ConfAIde}: benchmarking contextual privacy reasoning in
+language models. \textbf{[CITATION NEEDED]}
+
+\bibitem{funnel} A. Makhdoumi, S. Salamatian, N. Fawaz, M. M\'edard. From the
+information bottleneck to the privacy funnel. \emph{IEEE Information Theory
+Workshop}, 2014.
+
+\bibitem{bottleneck} N. Tishby, F. C. Pereira, W. Bialek. The information
+bottleneck method. \emph{Allerton}, 1999.
+
+\bibitem{tishby} N. Tishby, N. Zaslavsky. Deep learning and the information
+bottleneck principle. \emph{IEEE Information Theory Workshop}, 2015.
+
+\bibitem{dobrushin} R. L. Dobrushin. Central limit theorem for non-stationary
+Markov chains. \emph{Theory of Probability and its Applications}, 1956.
+
+\bibitem{raginsky} M. Raginsky. Strong data processing inequalities and
+$\Phi$-Sobolev inequalities for discrete channels. \emph{IEEE Transactions on
+Information Theory}, 62(6), 2016.
+
+\bibitem{judgebias} Judging LLM-as-a-judge: biases and reliability.
+\textbf{[CITATION NEEDED]}
+
+\bibitem{judgesurvey} A survey on LLM-as-a-judge. \textbf{[CITATION NEEDED]}
+
+\end{thebibliography}
 
 \section*{Reproducibility}
 

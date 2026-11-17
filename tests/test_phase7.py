@@ -1360,3 +1360,57 @@ class TestRunGuardIsShared(unittest.TestCase):
         for name in ("run_exp1.py", "llm_adversary.py"):
             src = (root / "scripts" / name).read_text(encoding="utf-8")
             self.assertIn("report_and_guard(", src, name)
+
+
+class TestH5TestsTheRegisteredDirection(unittest.TestCase):
+    """H5 registered `full` > `constraint_only` >= `decision_only`.
+
+    The implementation computed `constraint_only <= decision_only` -- the
+    reverse -- so the observed reversal (0.033 against 0.133) was scored as a
+    confirmation, and both models' write-ups reported a pre-registered
+    hypothesis as "supported" when it had reversed. The branch that states the
+    reversal correctly existed and could never be reached.
+
+    These tests pin the direction. A hypothesis whose inequality can be flipped
+    to match the data is not a hypothesis.
+    """
+
+    def _panel(self, full, constraint, decision):
+        from petal.analysis import Panel
+        p = Panel(use_type="decision", scenarios=["s%d" % i for i in range(30)])
+        for arm, rate in (("full", full), ("constraint_only", constraint),
+                          ("decision_only", decision)):
+            n_leak = int(round(rate * 30))
+            p.leak[arm] = {"m1": [i < n_leak for i in range(30)]}
+        return p
+
+    def test_the_observed_reversal_is_not_supported(self):
+        """The real numbers: constraint 0.033, decision 0.133."""
+        from petal.analysis import h5_verdict
+        v = h5_verdict(self._panel(0.767, 0.033, 0.133))
+        self.assertEqual(v["verdict"], "not supported")
+        self.assertIn("reverses", v["note"])
+
+    def test_the_registered_ordering_is_supported_when_it_holds(self):
+        from petal.analysis import h5_verdict
+        v = h5_verdict(self._panel(0.767, 0.133, 0.033))
+        self.assertEqual(v["verdict"], "supported")
+
+    def test_equality_counts_as_supported(self):
+        """Registered as >=, so a tie satisfies it."""
+        from petal.analysis import h5_verdict
+        v = h5_verdict(self._panel(0.767, 0.100, 0.100))
+        self.assertEqual(v["verdict"], "supported")
+
+    def test_the_printed_inequality_matches_the_registration(self):
+        from petal.analysis import h5_verdict
+        v = h5_verdict(self._panel(0.767, 0.033, 0.133))
+        label = v["parts"][1][0]
+        self.assertIn(">=", label)
+        self.assertNotIn("<=", label)
+
+    def test_a_failed_premise_is_reported_as_such(self):
+        from petal.analysis import h5_verdict
+        v = h5_verdict(self._panel(0.033, 0.767, 0.133))
+        self.assertEqual(v["verdict"], "not supported")
+        self.assertIn("premise", v["note"])

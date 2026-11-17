@@ -26,7 +26,7 @@ class SpendLimitExceeded(RuntimeError):
     pass
 
 
-def _append_locked(path: "Path", line: bytes, *, tries: int = 200) -> None:
+def _append_locked(path: "Path", line: bytes, *, tries: int = 3000) -> None:
     """Append one record to the ledger under an exclusive cross-process lock.
 
     Two runs sharing a ledger corrupt it, and on Windows they do so silently.
@@ -80,8 +80,15 @@ def _flock(fd: int, tries: int) -> None:
                 return
             except OSError:
                 time.sleep(0.01)
-        raise RuntimeError("could not lock the spend ledger; refusing to "
-                           "append a record that might be lost")
+        # 30s of contention, not 2s. The budget was 200 tries, and a full test
+        # suite running beside a paid run exhausted it -- on a machine at its
+        # commit limit, eight writers can block each other for longer than two
+        # seconds. Raising here is the safe direction (refuse rather than lose
+        # a record), but it aborts a paid run that may be an hour in, so the
+        # budget should be far larger than any plausible contention.
+        raise RuntimeError("could not lock the spend ledger after %.0fs; "
+                           "refusing to append a record that might be lost"
+                           % (tries * 0.01))
     else:
         fcntl.flock(fd, fcntl.LOCK_EX)
 

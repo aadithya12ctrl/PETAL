@@ -1426,6 +1426,7 @@
     "error_rate_ci_hi": 0.8850131044302613,
     "mi_lower_bits": 0.0
    }
-  }
+  },
+  "measured_on_relay_unavailable": ""
  }
 }

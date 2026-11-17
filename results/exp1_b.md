@@ -50,9 +50,9 @@ Fixed before the arm was run: `full` > `constraint_only` >= `decision_only` on r
 | inequality | observed | holds? |
 |---|---|---|
 | `full` > `constraint_only` | 0.600 > 0.000 | yes |
-| `constraint_only` <= `decision_only` | 0.000 vs 0.067 | yes |
+| `constraint_only` >= `decision_only` | 0.000 vs 0.067 | **no** |
 
-**Verdict: supported.** Both inequalities hold. The paired test on the second is 0 vs 2 discordant pairs, exact McNemar p = 0.500, so the ordering is consistent with the data without being established by it.
+**Verdict: not supported.** The first inequality holds and the second **reverses**: `decision_only` asserts S more often than `constraint_only`, not less. The paired test is 0 vs 2 discordant pairs, exact McNemar p = 0.500, so the reversal is not significant either -- the honest reading is that the ordering between the two abstracting arms is unresolved at this n, not that the coarser relay is safer. Worth reading the relays that assert: a planner told to carry only its conclusion can still volunteer the reason.
 
 ### Separability delta
 
@@ -153,9 +153,9 @@ Fixed before the arm was run: `full` > `constraint_only` >= `decision_only` on r
 | inequality | observed | holds? |
 |---|---|---|
 | `full` > `constraint_only` | 0.100 > 0.000 | yes |
-| `constraint_only` <= `decision_only` | 0.000 vs 0.033 | yes |
+| `constraint_only` >= `decision_only` | 0.000 vs 0.033 | **no** |
 
-**Verdict: supported.** Both inequalities hold. The paired test on the second is 0 vs 1 discordant pairs, exact McNemar p = 1.000, so the ordering is consistent with the data without being established by it.
+**Verdict: not supported.** The first inequality holds and the second **reverses**: `decision_only` asserts S more often than `constraint_only`, not less. The paired test is 0 vs 1 discordant pairs, exact McNemar p = 1.000, so the reversal is not significant either -- the honest reading is that the ordering between the two abstracting arms is unresolved at this n, not that the coarser relay is safer. Worth reading the relays that assert: a planner told to carry only its conclusion can still volunteer the reason.
 
 ### Separability delta
 
