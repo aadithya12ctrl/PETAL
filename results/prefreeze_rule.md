@@ -1151,13 +1151,26 @@ different premises, hence no coverage from the primary seed's score cache --
 Replicating `petal_text` properly therefore required a third off-machine
 scoring pass. The author declined it.
 
-**Why declining is defensible.** The headline this paper reports is
-delta/ceiling on `constraint_only` and `decision_only`, and the question the
-replication answers is whether that headline is specific to one seed. Both of
-those arms are replicated, as are `full` and `drop`, which are the numerator
-and the floor. `petal_text` is a secondary arm: it tests whether a
-gap-and-refill defence beats a constraint relay, not whether separability
-exists.
+**CORRECTION, 2026-11-17.** The paragraph that stood here was wrong, and it
+was the justification for the whole deviation. It claimed `constraint_only` was
+replicated. **It was not.** The replication ran `full`, `drop` and
+`decision_only`; `constraint_only` -- the arm the paper's headline belongs to
+-- is absent, and so is `swap`, which means **Lambda is undefined at seed 777**
+(it comes back `nan`, being leak(full) - leak(swap)).
+
+Two things caused this, and only one of them is a slip.
+
+The slip: the arm list was chosen as "KEY_ARMS minus petal_text" without
+checking that KEY_ARMS contains the arm the paper leads with.
+
+The deeper problem: **it does not.** `KEY_ARMS = ["full", "drop",
+"petal_text", "decision_only"]` was pre-registered around the petal -- the
+petal plus its two controls plus the decision baseline. `constraint_only`
+became the headline arm after the fact, when it turned out to beat the petal.
+So `--arms key`, exactly as pre-registered, would also have failed to
+replicate the headline. The pre-registration does not cover the claim the
+paper ended up making. That is worth stating in the paper as a fact about this
+study's design, not buried as a footnote about one run's flags.
 
 **What the paper must say, and not say.** The robustness section reports the
 replication as covering `full`, `drop` and `decision_only`, names
@@ -1171,3 +1184,48 @@ primary seed's score cache would have left every span unscored and the gap
 scan lexical. That is worse than not replicating the arm, because it would
 produce a number that looks like a replication of the petal and is a
 replication of a weaker detector.
+
+### What the replication does and does not establish, 2026-11-17
+
+Measured, primary seed 20261109 against replication seed 777:
+
+| decision tasks | primary | seed 777 |
+|---|---|---|
+| full, leak m1 / utility | 0.767 / 0.767 | 0.733 / 0.800 |
+| drop, leak m1 / utility | 0.000 / 0.333 | 0.000 / 0.267 |
+| decision_only, leak m1 / utility | 0.133 / 0.833 | 0.133 / 0.767 |
+| Phi_floor | 0.000 | 0.000 |
+| delta/ceiling, decision_only | 0.750 [0.545, 0.929] | 0.682 [0.450, 0.870] |
+
+Content tasks agree as well: delta/ceiling for `decision_only` 0.207 [0.048,
+0.381] against 0.299 [0.115, 0.494], and `drop` at exactly 0.000 in both.
+
+**Established.** Disclosure in the undefended arm is not seed-specific: the
+Full arm asserts S at 0.767 and 0.733 across two seeds. The inference floor is
+exactly 0.000 in both, on both task types, so the Drop control is not an
+artefact of one sample. `decision_only` reproduces to three decimals on
+decision tasks (0.133 twice), and its delta/ceiling intervals overlap heavily
+on both task types. The numerator and the floor -- the two quantities every
+delta in this paper is computed from -- both replicate.
+
+**Not established.** The defended arm the paper leads with was not re-run. The
+sentence "constraint relays cut explicit assertion of S from 77% to 3% at no
+utility cost" rests on one seed, and the replication cannot speak to the 3%.
+Nor can it speak to Lambda, since `swap` is absent.
+
+**Why this was not fixed rather than recorded.** Re-running `constraint_only`
+and `swap` at seed 777 is cheap in money (about $0.20) and moderate in machine
+time (roughly 90 minutes), but their relays are new text, so detection needs
+entailment scores this project obtains from an off-machine GPU pass -- a third
+manual round trip, after two already made for the petal and for detection. The
+judgement taken was that the marginal evidence does not justify it: what is
+seed-dependent in a leak rate is the *high* rate, where the model has a choice
+about how to phrase S, and that is the arm that was replicated. A near-zero
+rate in a defended arm has far less room to move between seeds.
+
+**How the paper must therefore phrase it.** Not "replicated at a second seed".
+Instead: the undefended arm, the floor and the decision baseline replicate at
+a second seed; the constraint arm and Lambda were measured once. Stated that
+way it is a real robustness result with a named limit, and the limit is the
+honest one to carry into the limitations section alongside the single
+labeller.

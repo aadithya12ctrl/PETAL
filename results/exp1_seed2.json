@@ -1,0 +1,1162 @@
+{
+ "meta": {
+  "n_runs": 180,
+  "n_detections": 720,
+  "models": [
+   "agent_a"
+  ],
+  "seeds": [
+   777
+  ],
+  "arms": [
+   "decision_only",
+   "drop",
+   "full"
+  ]
+ },
+ "use_types": {
+  "content": {
+   "n_scenarios": 30,
+   "utility": {
+    "decision_only": 0.3966666666666667,
+    "drop": 0.31,
+    "full": 0.5766666666666667
+   },
+   "leak": {
+    "decision_only": {
+     "m1_draft": 0.16666666666666666,
+     "m1": 0.16666666666666666,
+     "m2": 0.13333333333333333,
+     "output": 0.06666666666666667
+    },
+    "drop": {
+     "m1_draft": 0.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "full": {
+     "m1_draft": 0.8,
+     "m1": 0.8,
+     "m2": 0.6666666666666666,
+     "output": 0.6
+    }
+   },
+   "lambda": NaN,
+   "phi_floor": 0.0,
+   "delta": {
+    "decision_only": {
+     "point": 0.325,
+     "lo": 0.12244331065759641,
+     "hi": 0.5972341954022989,
+     "n": 30
+    }
+   },
+   "delta_over_ceiling": {
+    "decision_only": {
+     "point": 0.2988505747126436,
+     "lo": 0.11494252873563218,
+     "hi": 0.4942528735632179,
+     "n": 30
+    }
+   },
+   "ceiling_delta_scale": {
+    "point": 1.0875000000000004,
+    "lo": 0.823529411764706,
+    "hi": 1.5535714285714288,
+    "n": 30
+   },
+   "u_max_no_s_mean": 0.6,
+   "decision_rule": {
+    "2.0": {
+     "available": false
+    },
+    "1.0": {
+     "available": false
+    },
+    "5.0": {
+     "available": false
+    }
+   },
+   "tests": {},
+   "power": {}
+  },
+  "decision": {
+   "n_scenarios": 30,
+   "utility": {
+    "decision_only": 0.7666666666666667,
+    "drop": 0.26666666666666666,
+    "full": 0.8
+   },
+   "leak": {
+    "decision_only": {
+     "m1_draft": 0.13333333333333333,
+     "m1": 0.13333333333333333,
+     "m2": 0.06666666666666667,
+     "output": 0.1
+    },
+    "drop": {
+     "m1_draft": 0.0,
+     "m1": 0.0,
+     "m2": 0.0,
+     "output": 0.0
+    },
+    "full": {
+     "m1_draft": 0.7333333333333333,
+     "m1": 0.7333333333333333,
+     "m2": 0.5,
+     "output": 0.43333333333333335
+    }
+   },
+   "lambda": NaN,
+   "phi_floor": 0.0,
+   "delta": {
+    "decision_only": {
+     "point": 0.9374999999999998,
+     "lo": 0.6499999999999999,
+     "hi": 1.3636363636363635,
+     "n": 30
+    }
+   },
+   "delta_over_ceiling": {
+    "decision_only": {
+     "point": 0.6818181818181818,
+     "lo": 0.44999999999999996,
+     "hi": 0.8695652173913045,
+     "n": 30
+    }
+   },
+   "ceiling_delta_scale": {
+    "point": 1.3749999999999998,
+    "lo": 1.0999999999999999,
+    "hi": 2.1,
+    "n": 30
+   },
+   "u_max_no_s_mean": 1.0,
+   "decision_rule": {
+    "2.0": {
+     "available": false
+    },
+    "1.0": {
+     "available": false
+    },
+    "5.0": {
+     "available": false
+    }
+   },
+   "tests": {},
+   "power": {},
+   "arm_inferential": {
+    "full": {
+     "n": 26,
+     "recovery": 0.46153846153846156,
+     "chance": 0.16666666666666666,
+     "mi_lower_bits": 0.3389660744661125,
+     "mi_bits_design": 1.5849625007211563
+    },
+    "drop": {
+     "n": 24,
+     "recovery": 0.16666666666666666,
+     "chance": 0.16666666666666666,
+     "mi_lower_bits": 0.0,
+     "mi_bits_design": 1.5849625007211563
+    },
+    "decision_only": {
+     "n": 24,
+     "recovery": 0.4791666666666667,
+     "chance": 0.16666666666666666,
+     "mi_lower_bits": 0.37687765336448664,
+     "mi_bits_design": 1.5849625007211563
+    }
+   }
+  }
+ },
+ "robustness": {
+  "content": {
+   "n_all": 30,
+   "n_excluded": 6,
+   "edited_scenarios": [
+    "hr_leave/content/01",
+    "hr_leave/content/04",
+    "hr_leave/content/05",
+    "insurance_claims/content/02",
+    "insurance_claims/content/04",
+    "legal_intake/content/04"
+   ],
+   "delta_over_ceiling": {
+    "decision_only": {
+     "point": 0.33333333333333337,
+     "lo": 0.12500000000000014,
+     "hi": 0.5652173913043481,
+     "n": 24
+    }
+   },
+   "lambda": NaN,
+   "phi_floor": 0.0
+  },
+  "decision": {
+   "n_all": 30,
+   "n_excluded": 6,
+   "edited_scenarios": [
+    "hr_leave/decision/01",
+    "hr_leave/decision/04",
+    "hr_leave/decision/05",
+    "insurance_claims/decision/02",
+    "insurance_claims/decision/04",
+    "legal_intake/decision/04"
+   ],
+   "delta_over_ceiling": {
+    "decision_only": {
+     "point": 0.7222222222222222,
+     "lo": 0.4666666666666666,
+     "hi": 0.9374999999999999,
+     "n": 24
+    }
+   },
+   "lambda": NaN,
+   "phi_floor": 0.0
+  }
+ },
+ "decision_implied_leakage": {
+  "uninformed": {
+   "scope": "within-domain mean",
+   "n_scenarios": 30,
+   "k_categories": 12,
+   "prior_entropy_bits": 3.5849625007211556,
+   "conditional_entropy_bits": 2.5,
+   "mutual_information_bits": 1.0849625007211563,
+   "map_recovery": 0.25,
+   "chance_recovery": 0.08333333333333333,
+   "prior": "uninformed",
+   "answer_entropy_bits": 1.5849625007211563,
+   "empirical_recovery": 0.4791666666666667,
+   "empirical_n": 24,
+   "per_domain": {
+    "clinic_scheduling": {
+     "scope": "clinic_scheduling",
+     "n_scenarios": 5,
+     "k_categories": 12,
+     "prior_entropy_bits": 3.5849625007211556,
+     "conditional_entropy_bits": 2.5,
+     "mutual_information_bits": 1.084962500721156,
+     "map_recovery": 0.25,
+     "chance_recovery": 0.08333333333333333,
+     "prior": "uninformed",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.30264263587217544
+    },
+    "hr_leave": {
+     "scope": "hr_leave",
+     "n_scenarios": 5,
+     "k_categories": 12,
+     "prior_entropy_bits": 3.5849625007211556,
+     "conditional_entropy_bits": 2.5,
+     "mutual_information_bits": 1.084962500721156,
+     "map_recovery": 0.25,
+     "chance_recovery": 0.08333333333333333,
+     "prior": "uninformed",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.30264263587217544
+    },
+    "insurance_claims": {
+     "scope": "insurance_claims",
+     "n_scenarios": 5,
+     "k_categories": 12,
+     "prior_entropy_bits": 3.5849625007211556,
+     "conditional_entropy_bits": 2.5,
+     "mutual_information_bits": 1.084962500721156,
+     "map_recovery": 0.25,
+     "chance_recovery": 0.08333333333333333,
+     "prior": "uninformed",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.30264263587217544
+    },
+    "legal_intake": {
+     "scope": "legal_intake",
+     "n_scenarios": 5,
+     "k_categories": 12,
+     "prior_entropy_bits": 3.5849625007211556,
+     "conditional_entropy_bits": 2.5,
+     "mutual_information_bits": 1.084962500721156,
+     "map_recovery": 0.25,
+     "chance_recovery": 0.08333333333333333,
+     "prior": "uninformed",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.30264263587217544
+    },
+    "loan_prescreen": {
+     "scope": "loan_prescreen",
+     "n_scenarios": 5,
+     "k_categories": 12,
+     "prior_entropy_bits": 3.5849625007211556,
+     "conditional_entropy_bits": 2.5,
+     "mutual_information_bits": 1.084962500721156,
+     "map_recovery": 0.25,
+     "chance_recovery": 0.08333333333333333,
+     "prior": "uninformed",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.30264263587217544
+    },
+    "travel_accessibility": {
+     "scope": "travel_accessibility",
+     "n_scenarios": 5,
+     "k_categories": 12,
+     "prior_entropy_bits": 3.5849625007211556,
+     "conditional_entropy_bits": 2.5,
+     "mutual_information_bits": 1.084962500721156,
+     "map_recovery": 0.25,
+     "chance_recovery": 0.08333333333333333,
+     "prior": "uninformed",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.30264263587217544
+    }
+   },
+   "fraction_of_secret": 0.3026426358721755
+  },
+  "generator_aware": {
+   "scope": "within-domain mean",
+   "n_scenarios": 30,
+   "k_categories": 6,
+   "prior_entropy_bits": 2.584962500721156,
+   "conditional_entropy_bits": 1.0,
+   "mutual_information_bits": 1.5849625007211563,
+   "map_recovery": 0.5,
+   "chance_recovery": 0.16666666666666666,
+   "prior": "generator_aware",
+   "answer_entropy_bits": 1.5849625007211563,
+   "empirical_recovery": 0.4791666666666667,
+   "empirical_n": 24,
+   "per_domain": {
+    "clinic_scheduling": {
+     "scope": "clinic_scheduling",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "generator_aware",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.6131471927654584
+    },
+    "hr_leave": {
+     "scope": "hr_leave",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "generator_aware",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.6131471927654584
+    },
+    "insurance_claims": {
+     "scope": "insurance_claims",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "generator_aware",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.6131471927654584
+    },
+    "legal_intake": {
+     "scope": "legal_intake",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "generator_aware",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.6131471927654584
+    },
+    "loan_prescreen": {
+     "scope": "loan_prescreen",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "generator_aware",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.6131471927654584
+    },
+    "travel_accessibility": {
+     "scope": "travel_accessibility",
+     "n_scenarios": 5,
+     "k_categories": 6,
+     "prior_entropy_bits": 2.584962500721156,
+     "conditional_entropy_bits": 1.0,
+     "mutual_information_bits": 1.584962500721156,
+     "map_recovery": 0.5,
+     "chance_recovery": 0.16666666666666666,
+     "prior": "generator_aware",
+     "answer_entropy_bits": 1.584962500721156,
+     "empirical_recovery": NaN,
+     "empirical_n": 0,
+     "per_domain": {},
+     "fraction_of_secret": 0.6131471927654584
+    }
+   },
+   "fraction_of_secret": 0.6131471927654585
+  }
+ },
+ "relay_gradient": {
+  "generator_aware": {
+   "reason": {
+    "scope": "within-domain mean",
+    "n_scenarios": 30,
+    "k_categories": 6,
+    "prior_entropy_bits": 2.584962500721156,
+    "conditional_entropy_bits": 0.0,
+    "mutual_information_bits": 2.584962500721156,
+    "map_recovery": 0.9999999999999998,
+    "chance_recovery": 0.16666666666666666,
+    "prior": "generator_aware",
+    "answer_entropy_bits": 2.584962500721156,
+    "empirical_recovery": NaN,
+    "empirical_n": 0,
+    "per_domain": {
+     "clinic_scheduling": {
+      "scope": "clinic_scheduling",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 0.0,
+      "mutual_information_bits": 2.584962500721156,
+      "map_recovery": 0.9999999999999998,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 2.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 1.0
+     },
+     "hr_leave": {
+      "scope": "hr_leave",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 0.0,
+      "mutual_information_bits": 2.584962500721156,
+      "map_recovery": 0.9999999999999998,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 2.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 1.0
+     },
+     "insurance_claims": {
+      "scope": "insurance_claims",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 0.0,
+      "mutual_information_bits": 2.584962500721156,
+      "map_recovery": 0.9999999999999998,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 2.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 1.0
+     },
+     "legal_intake": {
+      "scope": "legal_intake",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 0.0,
+      "mutual_information_bits": 2.584962500721156,
+      "map_recovery": 0.9999999999999998,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 2.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 1.0
+     },
+     "loan_prescreen": {
+      "scope": "loan_prescreen",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 0.0,
+      "mutual_information_bits": 2.584962500721156,
+      "map_recovery": 0.9999999999999998,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 2.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 1.0
+     },
+     "travel_accessibility": {
+      "scope": "travel_accessibility",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 0.0,
+      "mutual_information_bits": 2.584962500721156,
+      "map_recovery": 0.9999999999999998,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 2.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 1.0
+     }
+    },
+    "fraction_of_secret": 1.0
+   },
+   "constraint": {
+    "scope": "within-domain mean",
+    "n_scenarios": 30,
+    "k_categories": 6,
+    "prior_entropy_bits": 2.584962500721156,
+    "conditional_entropy_bits": 1.0,
+    "mutual_information_bits": 1.5849625007211563,
+    "map_recovery": 0.5,
+    "chance_recovery": 0.16666666666666666,
+    "prior": "generator_aware",
+    "answer_entropy_bits": 1.5849625007211563,
+    "empirical_recovery": NaN,
+    "empirical_n": 0,
+    "per_domain": {
+     "clinic_scheduling": {
+      "scope": "clinic_scheduling",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 1.0,
+      "mutual_information_bits": 1.584962500721156,
+      "map_recovery": 0.5,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.6131471927654584
+     },
+     "hr_leave": {
+      "scope": "hr_leave",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 1.0,
+      "mutual_information_bits": 1.584962500721156,
+      "map_recovery": 0.5,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.6131471927654584
+     },
+     "insurance_claims": {
+      "scope": "insurance_claims",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 1.0,
+      "mutual_information_bits": 1.584962500721156,
+      "map_recovery": 0.5,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.6131471927654584
+     },
+     "legal_intake": {
+      "scope": "legal_intake",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 1.0,
+      "mutual_information_bits": 1.584962500721156,
+      "map_recovery": 0.5,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.6131471927654584
+     },
+     "loan_prescreen": {
+      "scope": "loan_prescreen",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 1.0,
+      "mutual_information_bits": 1.584962500721156,
+      "map_recovery": 0.5,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.6131471927654584
+     },
+     "travel_accessibility": {
+      "scope": "travel_accessibility",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 1.0,
+      "mutual_information_bits": 1.584962500721156,
+      "map_recovery": 0.5,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.6131471927654584
+     }
+    },
+    "fraction_of_secret": 0.6131471927654585
+   },
+   "answer": {
+    "scope": "within-domain mean",
+    "n_scenarios": 30,
+    "k_categories": 6,
+    "prior_entropy_bits": 2.584962500721156,
+    "conditional_entropy_bits": 1.0,
+    "mutual_information_bits": 1.5849625007211563,
+    "map_recovery": 0.5,
+    "chance_recovery": 0.16666666666666666,
+    "prior": "generator_aware",
+    "answer_entropy_bits": 1.5849625007211563,
+    "empirical_recovery": NaN,
+    "empirical_n": 0,
+    "per_domain": {
+     "clinic_scheduling": {
+      "scope": "clinic_scheduling",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 1.0,
+      "mutual_information_bits": 1.584962500721156,
+      "map_recovery": 0.5,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.6131471927654584
+     },
+     "hr_leave": {
+      "scope": "hr_leave",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 1.0,
+      "mutual_information_bits": 1.584962500721156,
+      "map_recovery": 0.5,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.6131471927654584
+     },
+     "insurance_claims": {
+      "scope": "insurance_claims",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 1.0,
+      "mutual_information_bits": 1.584962500721156,
+      "map_recovery": 0.5,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.6131471927654584
+     },
+     "legal_intake": {
+      "scope": "legal_intake",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 1.0,
+      "mutual_information_bits": 1.584962500721156,
+      "map_recovery": 0.5,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.6131471927654584
+     },
+     "loan_prescreen": {
+      "scope": "loan_prescreen",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 1.0,
+      "mutual_information_bits": 1.584962500721156,
+      "map_recovery": 0.5,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.6131471927654584
+     },
+     "travel_accessibility": {
+      "scope": "travel_accessibility",
+      "n_scenarios": 5,
+      "k_categories": 6,
+      "prior_entropy_bits": 2.584962500721156,
+      "conditional_entropy_bits": 1.0,
+      "mutual_information_bits": 1.584962500721156,
+      "map_recovery": 0.5,
+      "chance_recovery": 0.16666666666666666,
+      "prior": "generator_aware",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.6131471927654584
+     }
+    },
+    "fraction_of_secret": 0.6131471927654585
+   }
+  },
+  "uninformed": {
+   "reason": {
+    "scope": "within-domain mean",
+    "n_scenarios": 30,
+    "k_categories": 12,
+    "prior_entropy_bits": 3.5849625007211556,
+    "conditional_entropy_bits": 0.0,
+    "mutual_information_bits": 3.5849625007211556,
+    "map_recovery": 1.0,
+    "chance_recovery": 0.08333333333333333,
+    "prior": "uninformed",
+    "answer_entropy_bits": 3.5849625007211556,
+    "empirical_recovery": NaN,
+    "empirical_n": 0,
+    "per_domain": {
+     "clinic_scheduling": {
+      "scope": "clinic_scheduling",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 0.0,
+      "mutual_information_bits": 3.5849625007211556,
+      "map_recovery": 1.0,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 3.5849625007211556,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 1.0
+     },
+     "hr_leave": {
+      "scope": "hr_leave",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 0.0,
+      "mutual_information_bits": 3.5849625007211556,
+      "map_recovery": 1.0,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 3.5849625007211556,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 1.0
+     },
+     "insurance_claims": {
+      "scope": "insurance_claims",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 0.0,
+      "mutual_information_bits": 3.5849625007211556,
+      "map_recovery": 1.0,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 3.5849625007211556,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 1.0
+     },
+     "legal_intake": {
+      "scope": "legal_intake",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 0.0,
+      "mutual_information_bits": 3.5849625007211556,
+      "map_recovery": 1.0,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 3.5849625007211556,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 1.0
+     },
+     "loan_prescreen": {
+      "scope": "loan_prescreen",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 0.0,
+      "mutual_information_bits": 3.5849625007211556,
+      "map_recovery": 1.0,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 3.5849625007211556,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 1.0
+     },
+     "travel_accessibility": {
+      "scope": "travel_accessibility",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 0.0,
+      "mutual_information_bits": 3.5849625007211556,
+      "map_recovery": 1.0,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 3.5849625007211556,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 1.0
+     }
+    },
+    "fraction_of_secret": 1.0
+   },
+   "constraint": {
+    "scope": "within-domain mean",
+    "n_scenarios": 30,
+    "k_categories": 12,
+    "prior_entropy_bits": 3.5849625007211556,
+    "conditional_entropy_bits": 0.9999999999999998,
+    "mutual_information_bits": 2.584962500721156,
+    "map_recovery": 0.4999999999999999,
+    "chance_recovery": 0.08333333333333333,
+    "prior": "uninformed",
+    "answer_entropy_bits": 2.584962500721156,
+    "empirical_recovery": NaN,
+    "empirical_n": 0,
+    "per_domain": {
+     "clinic_scheduling": {
+      "scope": "clinic_scheduling",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 0.9999999999999998,
+      "mutual_information_bits": 2.584962500721156,
+      "map_recovery": 0.4999999999999999,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 2.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.7210570543488702
+     },
+     "hr_leave": {
+      "scope": "hr_leave",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 0.9999999999999998,
+      "mutual_information_bits": 2.584962500721156,
+      "map_recovery": 0.4999999999999999,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 2.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.7210570543488702
+     },
+     "insurance_claims": {
+      "scope": "insurance_claims",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 0.9999999999999998,
+      "mutual_information_bits": 2.584962500721156,
+      "map_recovery": 0.4999999999999999,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 2.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.7210570543488702
+     },
+     "legal_intake": {
+      "scope": "legal_intake",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 0.9999999999999998,
+      "mutual_information_bits": 2.584962500721156,
+      "map_recovery": 0.4999999999999999,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 2.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.7210570543488702
+     },
+     "loan_prescreen": {
+      "scope": "loan_prescreen",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 0.9999999999999998,
+      "mutual_information_bits": 2.584962500721156,
+      "map_recovery": 0.4999999999999999,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 2.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.7210570543488702
+     },
+     "travel_accessibility": {
+      "scope": "travel_accessibility",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 0.9999999999999998,
+      "mutual_information_bits": 2.584962500721156,
+      "map_recovery": 0.4999999999999999,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 2.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.7210570543488702
+     }
+    },
+    "fraction_of_secret": 0.7210570543488702
+   },
+   "answer": {
+    "scope": "within-domain mean",
+    "n_scenarios": 30,
+    "k_categories": 12,
+    "prior_entropy_bits": 3.5849625007211556,
+    "conditional_entropy_bits": 2.5,
+    "mutual_information_bits": 1.0849625007211563,
+    "map_recovery": 0.25,
+    "chance_recovery": 0.08333333333333333,
+    "prior": "uninformed",
+    "answer_entropy_bits": 1.5849625007211563,
+    "empirical_recovery": NaN,
+    "empirical_n": 0,
+    "per_domain": {
+     "clinic_scheduling": {
+      "scope": "clinic_scheduling",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 2.5,
+      "mutual_information_bits": 1.084962500721156,
+      "map_recovery": 0.25,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.30264263587217544
+     },
+     "hr_leave": {
+      "scope": "hr_leave",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 2.5,
+      "mutual_information_bits": 1.084962500721156,
+      "map_recovery": 0.25,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.30264263587217544
+     },
+     "insurance_claims": {
+      "scope": "insurance_claims",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 2.5,
+      "mutual_information_bits": 1.084962500721156,
+      "map_recovery": 0.25,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.30264263587217544
+     },
+     "legal_intake": {
+      "scope": "legal_intake",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 2.5,
+      "mutual_information_bits": 1.084962500721156,
+      "map_recovery": 0.25,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.30264263587217544
+     },
+     "loan_prescreen": {
+      "scope": "loan_prescreen",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 2.5,
+      "mutual_information_bits": 1.084962500721156,
+      "map_recovery": 0.25,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.30264263587217544
+     },
+     "travel_accessibility": {
+      "scope": "travel_accessibility",
+      "n_scenarios": 5,
+      "k_categories": 12,
+      "prior_entropy_bits": 3.5849625007211556,
+      "conditional_entropy_bits": 2.5,
+      "mutual_information_bits": 1.084962500721156,
+      "map_recovery": 0.25,
+      "chance_recovery": 0.08333333333333333,
+      "prior": "uninformed",
+      "answer_entropy_bits": 1.584962500721156,
+      "empirical_recovery": NaN,
+      "empirical_n": 0,
+      "per_domain": {},
+      "fraction_of_secret": 0.30264263587217544
+     }
+    },
+    "fraction_of_secret": 0.3026426358721755
+   }
+  },
+  "measured_on_relay": {
+   "full": {
+    "n": 30,
+    "k": 6,
+    "recovery": 0.6,
+    "chance": 0.16666666666666666,
+    "mi_lower_bits_point": 0.6852406683115426,
+    "error_rate_ci_hi": 0.5660547387865444,
+    "mi_lower_bits": 0.28325059476207226
+   },
+   "drop": {
+    "n": 30,
+    "k": 6,
+    "recovery": 0.3,
+    "chance": 0.16666666666666666,
+    "mi_lower_bits_point": 0.07832193506930984,
+    "error_rate_ci_hi": 0.8336740443867883,
+    "mi_lower_bits": 0.0
+   },
+   "decision_only": {
+    "n": 30,
+    "k": 6,
+    "recovery": 0.23333333333333334,
+    "chance": 0.16666666666666666,
+    "mi_lower_bits_point": 0.02104068048947738,
+    "error_rate_ci_hi": 0.8850131044302613,
+    "mi_lower_bits": 0.0
+   }
+  },
+  "measured_on_relay_unavailable": ""
+ }
+}

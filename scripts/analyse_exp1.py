@@ -353,7 +353,23 @@ def main() -> int:
                         r["scenario_id"], []).append(r["chosen"])
             scen_list = list(scen_index.values())
             arm_inf = IM.per_arm_leakage(scen_list, by_arm)
-            relay_m = IM.relay_leakage(all_runs, scen_list)
+            # The TF-IDF probe is a *secondary* read of the relay --
+            # `relay_leakage_exact` below is the headline, and needs no
+            # third-party model. So a failure here must not take the whole
+            # analysis with it. On 2026-11-17 importing sklearn raised
+            # MemoryError on an 8 GB machine sitting at 30.7 of its 31.7 GB
+            # commit limit, and the partially-initialised module then
+            # surfaced as `No module named sklearn.externals._packaging` --
+            # a misleading error for an out-of-memory condition. The
+            # section is reported as unavailable, with the reason, rather
+            # than silently omitted or faked with zeros.
+            relay_m, relay_m_error = {}, ""
+            try:
+                relay_m = IM.relay_leakage(all_runs, scen_list)
+            except (ImportError, MemoryError, OSError) as e:
+                relay_m_error = "%s: %s" % (type(e).__name__, e)
+                print("WARNING: TF-IDF relay probe unavailable (%s). The"
+                      " exact relay read is unaffected." % relay_m_error)
             relay_x = IM.relay_leakage_exact(all_runs, scen_list)
             out_json["use_types"][ut] = out_json["use_types"].get(ut, {})
             ils = {pr: IM.analyse(scen_list, chosen=chosen, prior=pr)
@@ -581,7 +597,8 @@ def main() -> int:
             out_json["relay_gradient"] = {
                 "generator_aware": {o: g.to_dict() for o, g in grad.items()},
                 "uninformed": {o: g.to_dict() for o, g in naive.items()},
-                "measured_on_relay": relay_m}
+                "measured_on_relay": relay_m,
+                "measured_on_relay_unavailable": relay_m_error}
 
             L += ["", "The last two columns answer different questions and must not "
                   "be read as one. **Recovery from the relay** is what the defence "
