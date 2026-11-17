@@ -1,0 +1,751 @@
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+
+\hypersetup{colorlinks=true, linkcolor=black, citecolor=black, urlcolor=blue}
+
+\newcommand{\dd}{\delta}
+\newcommand{\Lk}{\Lambda}
+\newcommand{\Pfloor}{\Phi_{\mathrm{floor}}}
+\newcommand{\CI}[2]{[#1,\,#2]}
+
+\title{Disclosure Without Use, Use Without Disclosure:\\
+Measuring Separability in Multi-Agent LLM Relays}
+
+\author{Aadithya\\[2pt]
+\small (affiliation withheld for review)}
+
+\date{Draft of \today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+When one language-model agent hands a task to another, it must say enough for the
+second agent to act and no more than it is permitted to say. We ask whether these
+two requirements can be separated: can a relay withhold a restricted fact while
+preserving the downstream agent's ability to use it? We build a 60-scenario
+testbed in which a restricted proposition $S$ determines the correct action, run
+seven relay arms through a three-hop agent chain on two model families, and
+measure both \emph{assertion} of $S$ (by a validated three-stage detector) and
+\emph{disclosure} of $S$ (in bits, from the generator's closed form).
+
+The two come apart, and not in the way a privacy claim would want. A relay that
+transmits only the operative constraint cuts explicit assertion of $S$ from
+$0.763$ $\CI{0.594}{0.899}$ to $0.017$ $\CI{0.000}{0.088}$ with no loss of task
+utility, reaching $0.700$ $\CI{0.450}{0.900}$ of the separability available to a
+defence that never asserts $S$. But the same constraint carries $1.585$ of the
+$2.585$ bits of $H(S)$ to an adversary who knows how the scenarios were built,
+and on content-generation tasks the same defence reaches only $0.034$
+$\CI{0.000}{0.107}$ of that ceiling. Separability is therefore real, large, and
+specific to decision tasks --- and it is separability of \emph{assertion}, not of
+disclosure.
+
+Three further results constrain how such numbers should be read. A realistic LLM
+adversary recovers $S$ from the undefended relay at $+0.633$ $\CI{0.467}{0.800}$
+over a permitted-information floor ($19$ discordant scenarios to $0$, McNemar
+$p<10^{-4}$), but is statistically indistinguishable from that floor on both
+defended arms --- a null we report as underpowered rather than as safety. A second
+model family inverts the picture by abstracting spontaneously, which makes the
+causal leak $\Lk$ incomparable across models unless the undefended arm's own rate
+is reported beside it. And a stochastic abstraction ladder decays within its
+theoretical bound at every hop, which we show is a property of our implementation
+rather than of the agents --- while the companion test for information routed
+\emph{around} the abstraction fails its own positive control, so we report that
+question as untested rather than as a null.
+\end{abstract}
+
+\section{Introduction}
+
+A multi-agent system built from language models passes work between agents as
+text. The text is the interface, and it is also the leak. An agent that must book
+an appointment around a patient's dialysis schedule has to tell the scheduler
+\emph{something}; whether it has to tell the scheduler that the patient is on
+dialysis is a different question, and it is the question this paper measures.
+
+We call the property \emph{disclosure--use separability}: the extent to which a
+relay can suppress a restricted proposition $S$ while preserving the downstream
+agent's ability to act as if it knew $S$. Separability is interesting because the
+two obvious answers are both wrong. It is not trivially $1$: the task was built so
+that $S$ determines the answer, so an agent that knows nothing relevant cannot
+act. It is not trivially $0$ either, because what the downstream agent needs is
+rarely $S$ itself --- it is the constraint $S$ imposes.
+
+Our central methodological claim is that this literature's usual measurement ---
+does the relay state the restricted fact? --- answers a narrower question than it
+appears to. We therefore measure two things separately and insist they be reported
+together:
+
+\begin{description}[leftmargin=2em,style=nextline]
+\item[Assertion] whether the relay states, paraphrases or clearly implies $S$,
+measured by a detector validated against hand labels (\S\ref{sec:detector}).
+\item[Disclosure] how much an adversary reading the relay learns about $S$,
+measured in bits from the generator's closed form, and separately by an LLM
+adversary given exactly what the downstream agent is given.
+\end{description}
+
+A relay can drive assertion to near zero while disclosing most of $H(S)$. Our
+headline arm does exactly that. Reporting only the first number would make this
+paper a privacy result; reporting both makes it a result about where the privacy
+is not.
+
+\paragraph{Contributions.}
+\begin{enumerate}[leftmargin=2em,itemsep=2pt]
+\item A separability estimator $\dd/\text{ceiling}$ that is comparable across task
+types, with the ceiling measured on the same scale as $\dd$ rather than taken from
+the design (\S\ref{sec:delta}).
+\item A 60-scenario testbed, frozen before any paid run, in which $S$ is causally
+necessary for the correct action, with a swap control that distinguishes
+\emph{using} $S$ from \emph{asserting} it (\S\ref{sec:testbed}).
+\item A three-stage assertion detector, hand-validated on 80 design-weighted
+labels: sensitivity $1.000$ point with a worst-case bound of $\geq 0.691$,
+specificity $0.988$ $\CI{0.976}{1.000}$ (\S\ref{sec:detector}).
+\item The separability measurements, on two model families, with a second seed
+(\S\ref{sec:exp1}).
+\item The disclosure measurements that qualify them: $1.585$ bits of
+decision-implied leakage in closed form, and an LLM adversary that confirms the
+undefended leak and cannot resolve the defended arms (\S\ref{sec:bits},
+\S\ref{sec:adversary}).
+\item A ladder-decay experiment against a theoretical contraction bound, reported
+with an explicit account of what it does and does not test (\S\ref{sec:exp2}).
+\end{enumerate}
+
+\section{Quantities}
+\label{sec:quantities}
+
+Let $S$ be the restricted proposition, $U_a$ the mean task utility of arm $a$, and
+$L_a$ the rate at which arm $a$'s relay asserts $S$.
+
+\subsection{Separability}
+\label{sec:delta}
+
+\begin{equation}
+\dd_a \;=\; \frac{U_a - U_{\mathrm{drop}}}{U_{\mathrm{full}} - U_{\mathrm{drop}}}
+\end{equation}
+
+where \textsc{drop} relays nothing about $S$ and \textsc{full} relays it freely.
+We compute $\dd$ as a ratio of means over scenario-paired bootstrap resamples, not
+a mean of per-scenario ratios: per scenario the denominator is frequently zero,
+and averaging ratios would discard exactly the scenarios that carry information
+about $\dd$.
+
+$\dd$ alone is not comparable across task types, because the room available to a
+non-asserting defence differs. We therefore measure the ceiling on $\dd$'s own
+scale --- the $\dd$ that a perfect answer which never asserts $S$ would earn,
+pushed through the identical estimator --- and report
+
+\begin{equation}
+\frac{\dd_a}{\text{ceiling}} \;=\; \frac{U_a - U_{\mathrm{drop}}}
+{U_{\max\neg S} - U_{\mathrm{drop}}},
+\end{equation}
+
+resampled as a single quantity so that its interval accounts for numerator and
+denominator sharing scenarios. This is \emph{not} the ceiling the scenario schema
+publishes, which is normalised by a chance floor and a perfect $1.0$; dividing a
+measured $\dd$ by that number misstates how much of the available room an arm
+reached, since $U_{\mathrm{drop}} \neq \text{chance}$ and $U_{\mathrm{full}} \neq
+1$ in every panel we ran.
+
+\subsection{Causal leak and inference floor}
+
+\begin{equation}
+\Lk \;=\; L_{\mathrm{full}} - L_{\mathrm{swap}},
+\qquad
+\Pfloor \;=\; L_{\mathrm{drop}}.
+\end{equation}
+
+The \textsc{swap} arm is given a \emph{different} restricted proposition $S'$ and
+scored against $S$. Both terms of $\Lk$ are rates of asserting $S$; the second is
+measured where $S$ is absent, so it captures detector false positives plus
+confabulation, and subtracting it is what separates a causal leak from an
+artefact. $\Pfloor$ is what an agent asserts about $S$ with $S$ absent from its
+inputs: unavoidable by any relay design, so subtracted rather than charged to the
+defence. \textsc{swap} is also a positive control --- we check it asserts $S'$ at a
+healthy rate, since otherwise its low rate on $S$ would demonstrate a specificity
+that was never tested.
+
+\section{Testbed}
+\label{sec:testbed}
+
+Sixty scenarios across six domains (clinical scheduling, HR leave, insurance
+claims, legal intake, loan pre-screening, travel accessibility), each in a
+decision variant and a content-generation variant, thirty of each. Every scenario
+contains a case file the relaying agent is entitled to see, a restricted annex
+containing $S$, and a task. $S$ is drawn from a domain-specific list of sensitive
+categories.
+
+The construction has one essential property: \textbf{$S$ determines the correct
+action.} Each restricted category bars two of four options, and a permitted
+service-level constraint removes a third, leaving exactly one viable choice. This
+is what makes $\dd$ measurable --- an agent that has lost $S$ cannot act --- and it
+is also the source of the decision-implied leakage we quantify in
+\S\ref{sec:bits}. A testbed in which $S$ merely shifted the answer distribution
+would have a lower floor and a weaker $\dd$; we state the trade rather than hide
+it.
+
+The testbed was frozen before any paid run (timestamp and content hash recorded,
+and checked at the start of every run), together with an exclusion rule: no
+scenario is dropped from the reported analysis, scenarios failing an audit check
+are reported as failing and kept in every aggregate, and the only admissible
+exclusion is a run that produced no parseable final answer, which is a harness
+failure and is counted separately.
+
+\subsection{Arms}
+
+Each scenario is run through a three-hop chain (planner $\rightarrow$ worker
+$\rightarrow$ reporter) under seven relay arms:
+
+\begin{description}[leftmargin=2em,style=nextline,itemsep=1pt]
+\item[\textsc{full}] relays the restricted annex freely. The upper bound on both
+utility and leakage.
+\item[\textsc{drop}] relays nothing about $S$. The utility floor and $\Pfloor$.
+\item[\textsc{swap}] relays a different restricted proposition $S'$. The causal
+control.
+\item[\textsc{constraint\_only}] relays only the operative constraint $S$ imposes,
+not $S$.
+\item[\textsc{decision\_only}] relays only which option to take.
+\item[\textsc{b1\_privacy}] a privacy instruction appended to the \textsc{full}
+prompt. The ``just ask it not to'' baseline.
+\item[\textsc{b4\_restriction}] a restriction-aware relay instruction.
+\end{description}
+
+Two further arms test a gap-and-refill defence (the \emph{petal}):
+\textsc{petal\_text} masks draft spans that disclose $S$ and regenerates them from
+permitted context alone, and \textsc{b6\_placebo} masks the same spans and fills
+them with matched irrelevant text. The placebo isolates whether \emph{occupying}
+the slot, rather than what replaces it, produces the effect.
+
+\subsection{Models}
+
+$\textsc{agent\_a} = $ \texttt{qwen/qwen3.8-27b}; $\textsc{agent\_b} = $
+\texttt{meta-llama/llama-3.3-70b-instruct}; detector judge $=$
+\texttt{deepseek/deepseek-v4-pro}; audit model $=$ \texttt{openai/gpt-oss-20b}.
+Primary seed $20261109$; replication seed $777$. Every comparison is
+scenario-paired, and the bootstrap resamples scenarios rather than runs.
+
+\section{The assertion detector}
+\label{sec:detector}
+
+Assertion is scored by a three-stage cascade: a lexical gate over surface forms of
+$S$; an entailment stage (\texttt{DeBERTa-v3-large-mnli-fever-anli-ling-wanli})
+scoring the relay against the restricted proposition; and an LLM judge on the
+$0.25$--$0.75$ entailment band only.
+
+\subsection{Validation}
+
+We hand-labelled $80$ items: $50$ drawn stratified by (arm $\times$ detector
+verdict) from the $1920$-detection frame with a fixed seed, plus $30$ drawn from
+the set where the cascade and the judge disagree. Labels are weighted by the
+inverse sampling fraction of their (arm $\times$ verdict) cell. This matters:
+unweighted pooling of a verdict-stratified sheet gave specificity $0.667$ where
+the design-weighted figure is $0.963$ --- enough to trip a kill condition
+spuriously.
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lcc}
+\toprule
+& \textsc{agent\_a} (Qwen) & \textsc{agent\_b} (Llama) \\
+\midrule
+labels & 80 & 32 \\
+strata covered & 25 of 26 & 11 of 11 \\
+sensitivity (point) & 1.000 & 1.000 \\
+sensitivity (worst case) & $\geq 0.691$ & $\geq 0.321$ \\
+specificity & 0.988 $\CI{0.976}{1.000}$ & 0.984 $\CI{0.955}{0.999}$ \\
+\bottomrule
+\end{tabular}
+\caption{Detector validation, design-weighted to each model's $1920$-detection
+frame. The sensitivity \emph{bound} is the figure to quote: a bootstrap interval
+cannot express a miss that was never observed, so we give the one-sided
+Clopper--Pearson worst case the labels do not rule out, pooled across arms because
+a blind spot belongs to the reader rather than to the arm.}
+\label{tab:validation}
+\end{table}
+
+Specificity is the load-bearing figure for our conclusions, because our claims
+take the form ``a defended arm asserts $S$ rarely'' and the obvious objection is
+that those rare positives are false alarms. At $0.988$ and $0.984$ they are not.
+Sensitivity is where the labels are weak, and we say so: there is \emph{no
+observed miss anywhere in 112 labels across both models}, so the only honest
+statement is the interval.
+
+\subsection{Two negative results about the detector}
+
+\paragraph{The LLM judge is the worse reader.} We pre-registered an amendment to
+run the judge on every relay span, not merely the entailment band, expecting it to
+catch euphemistic disclosure the cascade misses. On the $30$ hand-labelled items
+where the two readers disagree, the cascade was correct $30/30$ and the
+judge-augmented reader $0/30$. Of $27$ judge-only flags, $21$ were \emph{inferential
+reads} --- the relay narrows $S$ without asserting it --- and $6$ were incoherent,
+returning an affirmative verdict beside reasoning that negates it. The amendment
+was reverted and the cascade restored. The judge was largely detecting the very
+thing this paper separates out; it simply reported inference as assertion.
+
+\paragraph{A labelling convention was required, and it cost us an example.} Five
+labelled items turn on a treatment \emph{frequency} stated against a dialysis
+proposition, and had not been labelled alike; the inconsistency ran the
+indefensible way, with the item called a leak disclosing less than two called
+clean. We adopted the rule \emph{a frequency or schedule with no condition named
+is not an assertion}, applied it mechanically by script with an audit trail in
+each item, and recorded it. The rule is defensible --- a thrice-weekly treatment at
+a unit is equally consistent with dialysis, chemotherapy, physiotherapy or opioid
+substitution, so it does not identify the condition --- but deciding the other way
+would have been coherent too, and would have collapsed the distinction this paper
+is built on. The cost is that the concrete blind-spot example disappeared, which is
+why sensitivity rests on a bound. The gain is that those five relays become the
+clearest demonstration in our data of inferential disclosure: assertion goes to
+zero, disclosure does not.
+
+\section{Experiment 1: separability}
+\label{sec:exp1}
+
+\subsection{Decision tasks, \textsc{agent\_a}}
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lccc}
+\toprule
+arm & utility & assertion of $S$ (obs.) & corrected $\CI{\cdot}{\cdot}$ \\
+\midrule
+\textsc{full}            & 0.767 $\CI{0.600}{0.900}$ & 0.767 & 0.763 $\CI{0.594}{0.899}$ \\
+\textsc{constraint\_only}& 0.800 $\CI{0.667}{0.933}$ & 0.033 & 0.017 $\CI{0.000}{0.088}$ \\
+\textsc{decision\_only}  & 0.833 $\CI{0.700}{0.967}$ & 0.133 & 0.119 $\CI{0.015}{0.255}$ \\
+\textsc{b1\_privacy}     & 0.700 $\CI{0.533}{0.867}$ & 0.033 & 0.017 $\CI{0.000}{0.088}$ \\
+\textsc{b4\_restriction} & 0.267 $\CI{0.100}{0.433}$ & 0.033 & 0.017 $\CI{0.000}{0.089}$ \\
+\textsc{swap}            & 0.600 $\CI{0.433}{0.767}$ & 0.000 & 0.000 \\
+\textsc{drop}            & 0.333 $\CI{0.167}{0.500}$ & 0.000 & 0.000 \\
+\midrule
+\multicolumn{4}{l}{$\Lk = 0.767$ \quad $\Pfloor = 0.000$ \quad
+\textsc{swap} asserts $S'$ at $0.700$} \\
+\bottomrule
+\end{tabular}
+\caption{Decision tasks, \textsc{agent\_a}, $n=30$ scenarios. Rates are on the
+relay channel, which is what a relay defence is responsible for. Corrected rates
+are Rogan--Gladen using Table~\ref{tab:validation}, with intervals resampling the
+trace set \emph{and} the validation set.}
+\label{tab:decision_a}
+\end{table}
+
+The headline is Table~\ref{tab:decision_a}'s second row. \textsc{constraint\_only}
+cuts assertion of $S$ by a factor of $45$ relative to \textsc{full} while
+\emph{not losing} utility --- its point estimate is above \textsc{full}'s, and the
+paired utility test does not separate them ($p=0.71$, Holm-corrected $1.00$). On
+the separability scale:
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lcc}
+\toprule
+arm & $\dd/\text{ceiling}$, decision & $\dd/\text{ceiling}$, content \\
+\midrule
+\textsc{constraint\_only} & \textbf{0.700} $\CI{0.450}{0.900}$ & 0.034 $\CI{0.000}{0.107}$ \\
+\textsc{decision\_only}   & 0.750 $\CI{0.545}{0.929}$ & 0.207 $\CI{0.048}{0.381}$ \\
+\textsc{b1\_privacy}      & 0.550 $\CI{0.250}{0.778}$ & 0.115 $\CI{0.000}{0.253}$ \\
+\textsc{b4\_restriction}  & $-0.100$ $\CI{-0.412}{0.120}$ & $-0.379$ $\CI{-0.540}{-0.233}$ \\
+\bottomrule
+\end{tabular}
+\caption{Separability, \textsc{agent\_a}. $1.0$ means the arm reached everything
+available to a defence that never asserts $S$.}
+\label{tab:delta_a}
+\end{table}
+
+Two things in Table~\ref{tab:delta_a} deserve emphasis. First,
+\textbf{separability is use-type specific}: the same defence reaches $0.700$ of
+the ceiling on decision tasks and $0.034$ on content generation, where the
+intervals do not overlap. A constraint is a sufficient summary of $S$ when the
+task is to choose; it is not when the task is to write prose that must be
+\emph{about} the situation. Second, \textbf{the privacy instruction baseline
+works} ($0.550$), and \textbf{the restriction-aware relay actively harms}
+($-0.100$ on decision, $-0.379$ on content): it suppresses assertion and the task
+with it.
+
+The pre-registered ordering $L_{\mathrm{full}} > L_{\mathrm{constraint}} \leq
+L_{\mathrm{decision}}$ holds on both task types, but the paired test on the second
+inequality is $1$ versus $4$ discordant pairs (exact McNemar $p = 0.375$), so the
+ordering is consistent with our data without being established by it.
+
+\subsection{The petal, and what its placebo shows}
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+& \multicolumn{2}{c}{decision} & \multicolumn{2}{c}{content} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+arm & assertion (draft $\to$ relay) & $\dd/\text{ceiling}$ & assertion & $\dd/\text{ceiling}$ \\
+\midrule
+\textsc{petal\_text}  & $0.733 \to 0.000$ & 0.650 $\CI{0.400}{0.857}$ & $0.800 \to 0.000$ & 0.207 $\CI{0.069}{0.367}$ \\
+\textsc{b6\_placebo}  & $0.733 \to 0.000$ & 0.650 $\CI{0.400}{0.857}$ & $0.800 \to 0.000$ & 0.103 $\CI{0.000}{0.222}$ \\
+\bottomrule
+\end{tabular}
+\caption{The gap-and-refill defence. Assertion is shown on the planner's draft
+before the defence and on the relay after it.}
+\label{tab:petal}
+\end{table}
+
+The petal eliminates assertion completely --- $0.733 \to 0.000$ on decision tasks,
+$0.800 \to 0.000$ on content --- and this is its one unambiguous success. But
+\textbf{on decision tasks it is indistinguishable from its own placebo}: identical
+utility, identical assertion, identical $\dd/\text{ceiling}$ to three decimals.
+Masking the disclosing spans is the entire effect; regenerating them from
+permitted context contributes nothing a matched irrelevant filler does not. Only
+on content tasks does regeneration earn anything ($0.207$ against the placebo's
+$0.103$), and there the petal beats \textsc{constraint\_only} by a wide margin
+($0.207$ against $0.034$) --- the one regime in which the elaborate defence is the
+right one.
+
+Two caveats belong with Table~\ref{tab:petal}. \textbf{Eleven of sixty drafts
+contained no disclosing span at all}, so on those the petal is a literal no-op
+emitting the \textsc{full} arm's draft unmodified; the rates are reported over all
+sixty, and that count must be read beside them. And the entailment-backed gap scan
+we built to make the arm defensible changed almost nothing: against a surface-form
+gate it kept $99$ of $99$ gaps, added $2$, removed $0$ (Jaccard $0.980$), and $99$
+of the $101$ gaps are lexical hits. When this planner discloses $S$ it \emph{names}
+$S$, which a surface gate catches; the euphemisms an entailment model is for
+barely occur in the undefended draft. We report this as a measured property of
+these drafts, not a general claim --- a hedging planner would invert it.
+
+\subsection{A second model family inverts the picture}
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+& \multicolumn{2}{c}{\textsc{agent\_a} (Qwen)} & \multicolumn{2}{c}{\textsc{agent\_b} (Llama)} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+& decision & content & decision & content \\
+\midrule
+$U_{\mathrm{full}}$ & 0.767 & 0.630 & 0.500 & 0.517 \\
+$U_{\mathrm{constraint}}$ & 0.800 & 0.320 & \textbf{0.900} & 0.313 \\
+$L_{\mathrm{full}}$ & 0.767 & 0.867 & \textbf{0.100} & 0.600 \\
+$\Lk$ & 0.767 & 0.867 & \textbf{0.100} & 0.600 \\
+\textsc{swap} asserts $S'$ & 0.700 & 0.933 & \textbf{0.167} & 0.467 \\
+$\dd/\text{ceiling}$, \textsc{constraint} & 0.700 & 0.034 & 0.857 & $-0.012$ \\
+\bottomrule
+\end{tabular}
+\caption{Two model families. Llama's separability looks better and means less.}
+\label{tab:models}
+\end{table}
+
+Llama's $\dd/\text{ceiling}$ of $0.857$ on decision tasks exceeds Qwen's $0.700$,
+and taken alone would read as the stronger result. It is not, and
+Table~\ref{tab:models} shows why: \textbf{Llama's undefended arm barely asserts
+$S$ in the first place} ($0.100$ against Qwen's $0.767$). It abstracts
+spontaneously on decision tasks, relaying the schedule rather than the condition,
+without being asked to. Its $\Lk$ of $0.100$ rests on a \textsc{swap} positive
+control of only $0.167$, so the arm barely relayed anything and its low rate on
+$S$ demonstrates little. On content tasks, where Llama does assert ($0.600$) and
+the control is healthy ($0.467$), its separability collapses to $-0.012$.
+
+The methodological consequence is general: \textbf{$\Lk$ and $\dd$ are not
+comparable across models without reporting the undefended arm's own disclosure
+rate and the swap control beside them.} A defence evaluated only on a model that
+already abstracts will appear to work.
+
+\subsection{Replication at a second seed}
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lcc}
+\toprule
+decision tasks & seed $20261109$ & seed $777$ \\
+\midrule
+\textsc{full}: assertion / utility & 0.767 / 0.767 & 0.733 / 0.800 \\
+\textsc{decision\_only}: assertion / utility & 0.133 / 0.833 & 0.133 / 0.767 \\
+\textsc{drop}: assertion / utility & 0.000 / 0.333 & 0.000 / 0.267 \\
+$\Pfloor$ & 0.000 & 0.000 \\
+$\dd/\text{ceiling}$, \textsc{decision\_only} & 0.750 $\CI{0.545}{0.929}$ & 0.682 $\CI{0.450}{0.870}$ \\
+\bottomrule
+\end{tabular}
+\caption{What replicates. $\Pfloor$ is exactly $0.000$ on both task types at both
+seeds; \textsc{decision\_only}'s assertion rate reproduces to three decimals.}
+\label{tab:replication}
+\end{table}
+
+The numerator and the floor --- the two quantities every $\dd$ here is computed
+from --- both replicate, and so does \textsc{decision\_only}. On content tasks
+$\dd/\text{ceiling}$ for \textsc{decision\_only} is $0.207$ $\CI{0.048}{0.381}$
+against $0.299$ $\CI{0.115}{0.494}$, overlapping heavily.
+
+\textbf{The replication does not cover \textsc{constraint\_only} or
+\textsc{swap}.} Our pre-registered key-arm set was built around the petal and its
+controls, and \textsc{constraint\_only} became the headline arm only after it
+turned out to beat the petal; so the pre-registration does not cover the claim
+this paper ended up making, and $\Lk$ at the second seed is undefined. We report
+this as a fact about the study's design. What can be said is that the undefended
+arm, the floor and the decision baseline replicate; the constraint arm and $\Lk$
+were measured once.
+
+\section{What the constraint discloses}
+\label{sec:bits}
+
+Everything in \S\ref{sec:exp1} is an \emph{assertion} rate. This section is why
+that is not a privacy result.
+
+Because each restricted category bars two of four options and the permitted
+constraint removes a third, the posterior over categories given the answer has a
+closed form. We compute it per scenario and average, for two adversaries: an
+\emph{uninformed} one knowing the case file and the domain's category list, and a
+\emph{generator-aware} one who additionally knows --- because we publish the
+construction --- that a scenario's restricted category always leaves exactly one
+viable option.
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lcc}
+\toprule
+& uninformed & generator-aware \\
+\midrule
+$I(\text{constraint}; S)$, what \textsc{constraint\_only} relays & \textbf{2.585 bits} & \textbf{1.585 bits} \\
+$H(S)$ & 3.585 & 2.585 \\
+$I(\text{answer}; S)$ & 1.085 & \textbf{1.585} \\
+$H(\text{answer})$, the hard cap on $I$ & 1.585 & 1.585 \\
+fraction of $H(S)$ implied by the answer & 30.3\% & \textbf{61.3\%} \\
+adversary names the category & 0.250 & 0.500 \\
+chance & 0.083 & 0.167 \\
+from answers the models actually gave ($n=27$) & 0.463 & 0.463 \\
+\bottomrule
+\end{tabular}
+\caption{Decision-implied leakage, computed from the generator rather than probed.}
+\label{tab:bits}
+\end{table}
+
+Two consequences. First, \textbf{the constraint is not a redaction of $S$; it is a
+re-encoding of it.} To a generator-aware adversary, \textsc{constraint\_only}
+relays $1.585$ of the $2.585$ bits of $H(S)$ --- $61\%$ --- while asserting $S$ at
+$0.017$. The honest headline is therefore: \emph{constraint relays cut explicit
+assertion of $S$ from $76\%$ to $2\%$ at no utility cost, while still disclosing
+$1.585$ of $2.585$ bits about $S$ through the constraint itself.}
+
+Second, there is a \textbf{floor no relay-level defence can reach below while
+still doing the task}. The answer is a function of $S$ by construction, so which
+options were ruled out narrows $S$ whatever the relay says. This is not $\Pfloor$,
+which is what an agent asserts with $S$ absent; this survives a perfect defence, a
+perfect detector, and an agent that emits nothing but the chosen option. It also
+sits outside any contraction bound that assumes $S \perp Y$, since here $Y$ is
+chosen \emph{because} of $S$. Utility and answer-implied leakage trade against each
+other by construction: doing the task \emph{is} that leak.
+
+\section{A realistic adversary}
+\label{sec:adversary}
+
+The closed form bounds what is \emph{available}. Whether a competent reader cashes
+it in is a separate question, so we gave a model (\texttt{deepseek-v4-pro}) exactly
+what the downstream agent gets --- the permitted case file plus the relay --- and
+asked which of six candidate propositions holds. All $120$ decision-task relays
+from \textsc{agent\_a}, $30$ per arm, same scenarios in every arm.
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+arm & recovers $S$ & 95\% CI & vs.\ \textsc{drop} & McNemar \\
+\midrule
+\textsc{full}            & \textbf{0.833} & $\CI{0.653}{0.944}$ & \textbf{+0.633} $\CI{+0.467}{+0.800}$ & $p<10^{-4}$ \\
+\textsc{decision\_only}  & 0.333 & $\CI{0.173}{0.528}$ & $+0.133$ $\CI{-0.067}{+0.333}$ & $p=0.34$ \\
+\textsc{constraint\_only}& 0.267 & $\CI{0.123}{0.459}$ & $+0.067$ $\CI{-0.100}{+0.233}$ & $p=0.73$ \\
+\textsc{drop}            & 0.200 & $\CI{0.077}{0.386}$ & --- & --- \\
+\bottomrule
+\end{tabular}
+\caption{LLM adversary. Chance is $1/6 = 0.167$. Contrasts against \textsc{drop}
+are paired over the same $30$ scenarios.}
+\label{tab:adversary}
+\end{table}
+
+\textbf{\textsc{drop} recovers $0.200$, and the baseline is not chance.} The
+attacker reads the permitted case file too, so $0.200$ is the floor from
+permitted information --- the adversarial counterpart of $\Pfloor$ --- and every
+defended arm must be measured against it. Measuring against $1/6$ would credit the
+defence with concealing what the attacker was entitled to see.
+
+What survives is the \textsc{full} result, and it is strong: $19$ scenarios the
+attacker gets right under \textsc{full} and wrong under \textsc{drop}, against
+\emph{none} the other way, a Fano lower bound of $0.941$ of the $2.585$ bits,
+consistency across all six domains ($3$--$5$ of $5$ each), and $13$ of the $25$
+hits carrying a rationale that says the message \emph{states} the condition ---
+which our detector independently scores at $0.763$ on the same arm, from an
+entirely different mechanism.
+
+What does not survive is any claim about the defended arms. At $n=30$ the paired
+interval for \textsc{constraint\_only} reaches $+0.233$, so these data are equally
+consistent with the constraint giving the attacker nothing and with its giving a
+$23$-point advantage over the permitted file. \textbf{The supportable sentence is
+that this attacker did not convert the constraint into an identification at a rate
+this study could detect} --- not that it cannot be done. Note too that
+\textsc{decision\_only} ($0.333$) sits numerically above
+\textsc{constraint\_only} ($0.267$), reversing the detector's ordering at
+$p=0.73$: the direction Table~\ref{tab:bits} predicts, at a magnitude $30$ paired
+scenarios cannot resolve.
+
+\paragraph{A measurement artefact worth reporting.} Our first two runs of this
+experiment were invalid and we withdrew them. The adversary inherited a
+$200$-token budget sized for a one-word verdict; its replies were truncated before
+any answer appeared, and an empty reply scored as a failure to identify $S$. The
+silence was not uniform --- $40\%$ in \textsc{full} rising to $87\%$ in
+\textsc{drop}, because a thinner relay makes the model deliberate longer and hit
+the cap sooner --- so the fault suppressed measured recovery hardest in exactly the
+arms our hypothesis wants lowest. It manufactured the separation it was meant to
+test, and had it gone unnoticed this would have been the paper's strongest
+section. The escalation guard that should have caught it keyed on the provider's
+\texttt{finish\_reason}, which was absent on $79$ of the $81$ silent replies; it
+now also treats an empty reply at its token budget as truncated. In the corrected
+run, $119$ of $120$ relays produced a parseable answer and the residual silence is
+flat across arms. We report this because the failure mode --- clean-looking numbers
+in the hypothesis's favour, with no error anywhere --- is a general hazard in
+LLM-pipeline measurement, and because every rate computed over model calls should
+be reported beside the fraction of those calls that returned usable text.
+
+\section{Experiment 2: ladder decay}
+\label{sec:exp2}
+
+A stochastic abstraction ladder replaces the restricted symbol with a
+progressively coarser one under randomised response, with per-rung retention
+probabilities giving Dobrushin coefficients $\eta$ whose product bounds the
+surviving information. We ran four schedules over four hops with a $47$-candidate
+probe and compared the measured Fano lower bound on $I(S; M_h)$ against the
+product bound.
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lccccc}
+\toprule
+schedule & hop 1 & hop 2 & hop 3 & hop 4 & bound at hop 4 \\
+\midrule
+\textsc{none} (control)     & 0.635 & 0.635 & 1.016 & 1.482 & 5.555 \\
+\textsc{deterministic}      & 0.635 & 0.000 & 0.000 & 0.000 & 5.555 \\
+\textsc{stochastic}         & 0.635 & 0.000 & 0.000 & 0.000 & \textbf{0.281} \\
+\textsc{random\_dropout}    & 0.124 & 0.000 & 0.000 & 0.000 & 5.555 \\
+\bottomrule
+\end{tabular}
+\caption{Conservative Fano lower bounds in bits, evaluated at the one-sided $95\%$
+Clopper--Pearson limit of the probe error rate. $n=20$ per cell.}
+\label{tab:ladder}
+\end{table}
+
+The measured information stays below the bound at every hop, and the stochastic
+schedule decays faster than its bound requires ($4.420 \to 0.281$ bits over four
+hops, with measured information at zero from hop 2). The \textsc{none} control
+recovers $0.635$--$1.482$ bits, confirming the probe can detect information when
+it is present.
+
+\textbf{We do not claim this as a result about agents.} Our own code applies the
+randomised response, so the symbol in the slot was drawn from the rung's alphabet
+by construction: it satisfies the bound necessarily, and a decay curve that tracks
+the bound tests this repository, not relaying behaviour. The question that is about
+the agents is whether they carry $S$ \emph{around} the slot --- restating the
+condition in their own prose, or re-deriving it from the coarsened symbol and
+spelling it out downstream. We therefore re-ran the probe on each note with the
+ladder's line excised.
+
+That side-channel probe returns $0.000$ bits at every hop of every schedule. We
+report it as \textbf{inconclusive rather than negative}, because its own control
+fails. The \textsc{none} schedule writes no slot at all, so excising the slot
+should leave the note unchanged and its two probe columns should agree. They do
+not: the in-slot probe scores \textsc{none} at error $0.55$--$0.35$
+($0.635$--$1.482$ conservative bits) and the no-slot probe scores the same notes
+at $0.95$--$1.00$ ($0.000$ bits). The excision is therefore removing
+information-bearing text even where there is no slot to remove, which means the
+no-slot probe reports zero on material the in-slot probe demonstrably reads. A
+probe that cannot detect $1.482$ bits in its own positive control cannot be used
+to argue that a side channel is absent.
+
+So the honest statement is that \textbf{we did not test for the side channel
+successfully}. The in-slot curve is a sanity check on the implementation, and the
+side-channel question --- whether agents carry $S$ around the coarsened symbol in
+their own prose --- remains open. Diagnosing the excision is future work; we flag
+it here rather than present a null result that rests on a broken instrument.
+
+We also note $n=20$ per cell makes the noise on an error rate roughly $\pm 0.09$,
+which is why we evaluate Fano at the conservative limit --- the point estimate
+alone breaches the bound by chance.
+
+\section{Limitations}
+\label{sec:limitations}
+
+We state these as constraints on what the numbers above support, not as
+boilerplate.
+
+\paragraph{One labeller.} All $112$ hand labels are from a single annotator, with
+no inter-rater agreement statistic. This is the largest soft spot in the paper,
+and it is load-bearing twice over: the detector validation rests on it, and those
+same labels reverted a pre-registered amendment (\S\ref{sec:detector}). A second
+annotator on the $30$ disagreement items would settle it.
+
+\paragraph{Sensitivity is a bound, not an estimate.} There is no observed detector
+miss anywhere in the labels, so the point estimate of $1.000$ carries no
+information about rare misses in a $1920$-item frame. The usable figures are
+$\geq 0.691$ (Qwen) and $\geq 0.321$ (Llama). Every assertion rate we report is
+accordingly a lower bound on true assertion.
+
+\paragraph{The replication misses the headline arm.} \textsc{constraint\_only} and
+\textsc{swap} were measured at one seed (\S\ref{sec:exp1}). Our judgement was that
+what is seed-dependent in a leak rate is the \emph{high} rate, where the model has
+latitude in phrasing $S$, and that arm did replicate --- but the defended arm's
+$2\%$ is single-seed and $\Lk$ has no second measurement.
+
+\paragraph{The adversary section is underpowered where it matters.} $n=30$ per arm
+cannot resolve a $7$-point difference from the permitted-information floor
+(\S\ref{sec:adversary}). The null results there are not evidence of safety.
+
+\paragraph{The side-channel test failed, and is reported as untested.} The
+Experiment 2 probe for information carried around the abstraction slot returns
+zero everywhere, but its own positive control also returns zero where the in-slot
+probe reads $1.482$ bits (\S\ref{sec:exp2}). We therefore make no claim about the
+side channel in either direction.
+
+\paragraph{Scope.} Sixty synthetic scenarios, six domains, two model families, one
+chain topology, English only. $S$ is categorical and determines the answer
+exactly; a setting where $S$ shifts an answer distribution would behave
+differently and we cannot say how. The decision-implied leakage figures are
+properties of our generator, which we publish precisely so a reader can see what
+the adversary is assumed to know.
+
+\paragraph{One corrupt ledger line.} Our spend ledger contains a single
+unparseable record from a concurrent-append race on Windows, where
+\texttt{O\_APPEND} is emulated non-atomically; it is fixed with cross-process
+locking, but the historical line is left in place (append-only), understating
+total spend by approximately \$0.004.
+
+\section{Conclusion}
+
+Disclosure and use can be separated, substantially, on decision tasks: a relay
+carrying only the operative constraint cuts explicit assertion of a restricted
+proposition from $76\%$ to $2\%$ while losing no task utility, reaching $0.700$ of
+the separability available to any non-asserting defence. On content generation the
+same defence reaches $0.034$, so the result is specific to a regime where a
+constraint is a sufficient summary of the fact behind it.
+
+But the separation is of assertion, not of disclosure. The constraint that makes
+the defence work carries $1.585$ of $2.585$ bits about $S$, and the answer alone
+carries the same $1.585$ bits whatever the relay says --- a floor no relay-level
+defence can go below while still doing the task. An LLM adversary confirms the
+undefended leak decisively and cannot resolve the defended arms at our sample
+size.
+
+The practical reading is that relay-level assertion suppression is cheap,
+effective, and insufficient. It defeats a detector and a casual reader; it does
+not defeat an adversary who knows how the decision was made. For deployments where
+that adversary is in scope, the leverage is not in the relay text but in the task
+structure --- in whether the downstream agent needs to make a decision that is a
+function of the restricted fact at all.
+
+\section*{Reproducibility}
+
+The testbed was frozen with a content hash before any paid run and verified at
+every run start. All pre-registration amendments, post-freeze harness changes,
+logged deviations, labelling conventions, and two withdrawn results are recorded
+with reasons in the repository's running record. Total API spend was \$7.54
+against a hard \$9.00 ceiling enforced from an append-only ledger. The harness
+refuses to report any run in which more than $2\%$ of model calls returned no
+usable text.
+
+\end{document}
