@@ -10,6 +10,8 @@
 \usepackage{hyperref}
 \usepackage{xcolor}
 \usepackage{enumitem}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc}
 
 \hypersetup{colorlinks=true, linkcolor=black, citecolor=black, urlcolor=blue}
 
@@ -111,47 +113,99 @@ with an explicit account of what it does and does not test (\S\ref{sec:exp2}).
 \section{Related work}
 \label{sec:related}
 
-\paragraph{Leakage between agents.} Recent benchmarks establish that multi-agent
-LLM systems leak restricted information across the agent boundary at high rates
---- AgentLeak reports internal leakage around $68.8\%$ --- and that the leak is
-typically in the handover text rather than in the final output
-\cite{agentleak,magpie}. We take that as given and ask the next question: these
-benchmarks score whether the restricted fact \emph{appears}, which is the
-assertion measurement we argue is insufficient. Our contribution is to pair it
-with a disclosure measurement on the same relays and show the two separate.
+\subsection{Leakage between agents is established; what to measure is not}
 
-\paragraph{Contextual integrity.} Nissenbaum's framing holds that a disclosure is
-appropriate or not relative to the norms of the context it flows in, rather than
-by the sensitivity of the datum alone \cite{nissenbaum}; recent work operationalises
-it for language models \cite{ci-llm,confaide}. Our \textsc{constraint\_only} arm is
-a contextual-integrity defence in miniature: it transmits what the receiving
-context is entitled to act on and withholds the rest. Our finding is that such a
-transformation can satisfy the norm at the level of what is \emph{said} while
-leaving the inference available, which suggests operationalisations of contextual
-integrity should be evaluated against an inference-capable adversary rather than a
-surface detector.
+Two recent benchmarks establish that multi-agent LLM systems leak restricted
+information across the agent boundary, and that the leak is in the handover text
+rather than the final output. \textbf{AgentLeak} \cite{agentleak} instruments six
+channels --- final outputs, inter-agent messages, tool I/O, shared memory, logs
+and artifacts --- across 1{,}000 scenarios and 4{,}979 traces, and reports the
+result that motivates this paper: decomposing a task across agents \emph{lowers}
+leakage in the final output (27.2\% against 43.2\% single-agent) while raising
+total system exposure to 68.9\%, with \textbf{inter-agent messages leaking at
+68.8\%}. Output-only auditing misses an estimated 41.7\% of violations. The relay
+is the leak.
 
-\paragraph{Information-theoretic formulations.} The privacy funnel and the
-information bottleneck both formalise releasing a representation that preserves
-utility about a target while minimising information about a secret
-\cite{funnel,bottleneck,tishby}. Our $\dd/\text{ceiling}$ is an empirical analogue
-with the bottleneck's trade-off measured rather than optimised, and
-\S\ref{sec:bits} identifies a constraint those formulations assume away in this
-setting: when the released decision is a deterministic function of the secret, the
-achievable region has a floor at $I(\text{answer}; S)$, which no choice of
-representation can go below while retaining utility.
+\textbf{MAGPIE} \cite{magpie} shares our central design constraint: private
+information is made \emph{essential to task resolution}, so agents cannot
+trivially succeed by withholding it. On 200 high-stakes collaborative tasks it
+finds leakage of up to 50.7\% (Gemini-2.5-Pro) and 35.1\% (GPT-5) even when
+models are explicitly told not to disclose, and that agents frequently fail to
+reach consensus at all.
 
-\paragraph{Contraction and composition.} Strong data-processing inequalities bound
-how much information survives a noisy channel, with the Dobrushin coefficient
-giving the contraction factor that composes multiplicatively over hops
-\cite{dobrushin,raginsky}. Experiment 2 instantiates this for a multi-hop relay.
+Our work takes this setting as given and asks a different question about it. Both
+benchmarks score whether the restricted item \emph{appears} in a channel. That is
+the assertion measurement, and \S\ref{sec:bits} shows it can be driven to near
+zero by a relay that still transmits most of $H(S)$. We therefore pair an
+assertion detector with a disclosure measurement on the same relays. The
+practical implication for these benchmarks is that a defence tuned against them
+can score well while leaving the inference intact, so a leakage number should be
+reported beside what an inference-capable reader recovers.
 
-\paragraph{LLM-as-judge reliability.} Judge models are known to be biased and
-inconsistent relative to human labels \cite{judgebias,judgesurvey}. Our
-\S\ref{sec:detector} result is a specific instance with a specific mechanism: our
-judge systematically reported \emph{inference} as \emph{assertion}, which is not
-noise but a category error, and one that would silently inflate any leakage
-benchmark scored by an LLM judge.
+\subsection{Contextual integrity and need-to-know defences}
+
+Contextual integrity holds that a flow is appropriate relative to the norms of
+the context it occurs in, not by the sensitivity of the datum alone
+\cite{nissenbaum}. \textbf{ConfAIde} \cite{confaide} operationalises this for
+language models and finds that GPT-4 and ChatGPT reveal information humans would
+not in 39\% and 57\% of cases, with leakage persisting under privacy-inducing
+prompts and chain-of-thought --- consistent with our
+\textsc{b1\_privacy} arm, which reduces assertion but reaches only $0.550$ of the
+separability ceiling.
+
+\textbf{AirGapAgent} \cite{airgap} is the closest defence to our
+\textsc{constraint\_only} arm: it restricts an agent's access to the minimum the
+task requires, and under a context-hijacking attack that drops a Gemini Ultra
+agent's protection from 94\% to 45\%, it retains 97\%. The difference in what is
+being claimed matters. AirGapAgent minimises the data an agent \emph{holds};
+\textsc{constraint\_only} minimises what the agent \emph{says} while letting it
+hold everything. Our result is that minimising what is said is not the same as
+minimising what is conveyed, because the minimal sufficient statistic for the
+task can itself identify the secret. A need-to-know boundary drawn around the
+relay text does not close the inference, and we quantify by how much
+(\S\ref{sec:bits}).
+
+\subsection{Information-theoretic formulations}
+
+The information bottleneck \cite{bottleneck} and the privacy funnel
+\cite{funnel} formalise releasing a representation that preserves information
+about a utility variable while minimising information about a secret; the funnel
+additionally bounds the inference threat under any bounded cost function by the
+mutual information between the secret and what is disclosed. Our
+$\dd/\text{ceiling}$ is an empirical analogue, with the trade-off measured on
+real relays rather than optimised over a known joint distribution.
+
+\S\ref{sec:bits} identifies a constraint these formulations assume away in our
+setting. Both treat the released representation as a free variable. When the
+released object is a \emph{decision} that is a deterministic function of the
+secret --- which is what makes separability measurable at all --- the achievable
+region has a floor at $I(\text{answer}; S)$ that no choice of representation can
+go below while retaining utility. For our testbed that floor is $1.585$ bits of
+$H(S) = 2.585$. This is a property of task structure, not of any relay policy,
+and it sits outside contraction-based guarantees, which assume the secret is
+independent of the output.
+
+\subsection{Contraction over a chain}
+
+Strong data-processing inequalities bound how much information survives a noisy
+channel, with the Dobrushin coefficient giving a contraction factor that composes
+multiplicatively over hops \cite{dobrushin,raginsky}. Experiment 2
+(\S\ref{sec:exp2}) instantiates this for a relay chain by inserting a randomised
+abstraction ladder and comparing measured decay against the product bound. We are
+explicit that the in-slot curve tests our own implementation; the part that tests
+the agents is whether they route $S$ around the abstracted symbol.
+
+\subsection{LLM judges as detectors}
+
+Judge models are widely used to score benchmarks and are known to carry position,
+verbosity and self-enhancement biases \cite{judgebias}. Our \S\ref{sec:detector}
+finding is a distinct and, for privacy benchmarks, more consequential failure: on
+the items where our judge and our cascade disagreed, the judge was wrong
+$30$ times out of $30$, and $21$ of its $27$ false flags were \emph{inferential
+reads} --- cases where the relay narrows $S$ without asserting it. The judge was
+not noisy; it was answering a different question. Any leakage benchmark scored by
+an LLM judge is at risk of conflating the two measurements this paper separates,
+in the direction of overstating assertion.
 
 \section{Quantities}
 \label{sec:quantities}
@@ -258,6 +312,20 @@ permitted context alone, and \textsc{b6\_placebo} masks the same spans and fills
 them with matched irrelevant text. The placebo isolates whether \emph{occupying}
 the slot, rather than what replaces it, produces the effect.
 
+\begin{figure}[t]
+\centering
+\resizebox{\textwidth}{!}{\input{fig_system}}
+\caption{The relay chain and where each quantity is measured. $S$ reaches only
+the planner; hops 2 and 3 never see the case file, so whatever the relay omits is
+gone for the rest of the chain. The arm is a policy applied between the planner's
+draft and the relay $m_1$, which is the only channel a relay-level defence is
+responsible for. The two measurements this paper separates are taken on the
+\emph{same} $m_1$ text. The answer $Y$ is a deterministic function of $S$ by
+construction, which is what makes $\dd$ measurable and also what puts a floor
+under disclosure that no relay policy can remove (\S\ref{sec:bits}).}
+\label{fig:system}
+\end{figure}
+
 \subsection{Models}
 
 $\textsc{agent\_a} = $ \texttt{qwen/qwen3.8-27b}; $\textsc{agent\_b} = $
@@ -273,6 +341,18 @@ Assertion is scored by a three-stage cascade: a lexical gate over surface forms 
 $S$; an entailment stage (\texttt{DeBERTa-v3-large-mnli-fever-anli-ling-wanli})
 scoring the relay against the restricted proposition; and an LLM judge on the
 $0.25$--$0.75$ entailment band only.
+
+\begin{figure}[t]
+\centering
+\resizebox{\textwidth}{!}{\input{fig_detector}}
+\caption{The three-stage assertion cascade. Each stage only sees what the
+previous one could not decide, so the LLM judge --- the stage we found least
+reliable (\S\ref{sec:detector}) --- adjudicates only a narrow entailment band:
+$16$ of $720$ detections in the replication run and $4$ of $480$ in the petal
+run. That containment is why the judge's failure degrades a small slice of the
+measurement rather than all of it.}
+\label{fig:detector}
+\end{figure}
 
 \subsection{Validation}
 
@@ -695,6 +775,21 @@ surviving information. We ran four schedules over four hops with a $47$-candidat
 probe and compared the measured Fano lower bound on $I(S; M_h)$ against the
 product bound.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_ladder.pdf}
+\caption{Experiment 2. \emph{Left:} information surviving in the abstraction
+slot. Our code applies the randomised response, so this satisfies the bound by
+construction and tests the implementation; the \textsc{none} control is the only
+schedule carrying information, which confirms the probe reads what is there.
+\emph{Right:} the same notes with the slot's line removed --- the part that
+tests the agents. Every schedule sits at zero, including the control, whose
+in-slot curve reaches $1.482$ bits. The excision deletes one line of a roughly
+$3000$-character note, so the probe still sees $97\%$ of the agents' own prose:
+the zero is absence, not blindness.}
+\label{fig:ladder}
+\end{figure}
+
 \begin{table}[t]
 \centering
 \begin{tabular}{lccccc}
@@ -741,7 +836,7 @@ probe. A probe that reads the condition when that line is there and nothing when
 it is not is working, and that is what licenses reading a zero as absence rather
 than as blindness.
 
-The in-slot curve in Table~\ref{tab:ladder} is therefore a sanity check on our
+The in-slot curve (Table~\ref{tab:ladder}, Figure~\ref{fig:ladder} left) is therefore a sanity check on our
 implementation; this no-slot result is the part of Experiment 2 that is about the
 agents. Its limit is power: at $n=20$ per cell, the probe would not resolve a
 small side channel, so the claim is that none is detectable at this sample size,
@@ -817,45 +912,47 @@ function of the restricted fact at all.
 \begin{thebibliography}{99}
 \small
 
-\bibitem{agentleak} \emph{AgentLeak}: a benchmark for privacy leakage between
-cooperating LLM agents. \textbf{[CITATION NEEDED --- author, venue, year. The
-$68.8\%$ internal-leakage figure quoted in \S\ref{sec:related} is from the
-reviewer's recollection and must be verified against the paper before
-submission.]}
+\bibitem{agentleak} F. El Yagoubi, G. Badu-Marfo, R. Al Mallah. AgentLeak: A
+Full-Stack Benchmark for Privacy Leakage in Multi-Agent LLM Systems.
+arXiv:2602.11510, 2026. (Also published as ``A Benchmark for Internal-Channel
+Privacy Leakage in Multi-Agent LLM Systems'', IEEE Access, 2026.)
 
-\bibitem{magpie} \emph{MAGPIE}: multi-agent privacy evaluation.
-\textbf{[CITATION NEEDED]}
+\bibitem{magpie} MAGPIE: A Benchmark for Multi-AGent Contextual PrIvacy
+Evaluation. arXiv:2510.15186, 2025. NeurIPS 2025. (Earlier version:
+arXiv:2506.20737.)
 
-\bibitem{nissenbaum} H. Nissenbaum. \emph{Privacy as Contextual Integrity}.
-Washington Law Review, 79(1), 2004.
+\bibitem{nissenbaum} H. Nissenbaum. Privacy as Contextual Integrity.
+\emph{Washington Law Review}, 79(1):119--158, 2004.
 
-\bibitem{ci-llm} Contextual integrity for language-model assistants.
-\textbf{[CITATION NEEDED]}
+\bibitem{confaide} N. Mireshghallah, H. Kim, X. Zhou, Y. Tsvetkov, M. Sap,
+R. Shokri, Y. Choi. Can LLMs Keep a Secret? Testing Privacy Implications of
+Language Models via Contextual Integrity Theory. \emph{ICLR}, 2024 (spotlight).
+arXiv:2310.17884.
 
-\bibitem{confaide} \emph{ConfAIde}: benchmarking contextual privacy reasoning in
-language models. \textbf{[CITATION NEEDED]}
+\bibitem{airgap} E. Bagdasarian, R. Yi, S. Ghalebikesabi, P. Kairouz,
+M. Gruteser, S. Yekhanin, D. Ramage, B. Balle. AirGapAgent: Protecting
+Privacy-Conscious Conversational Agents. \emph{ACM CCS}, 2024.
+arXiv:2405.05175.
 
 \bibitem{funnel} A. Makhdoumi, S. Salamatian, N. Fawaz, M. M\'edard. From the
-information bottleneck to the privacy funnel. \emph{IEEE Information Theory
-Workshop}, 2014.
+Information Bottleneck to the Privacy Funnel. \emph{IEEE Information Theory
+Workshop (ITW)}, pp. 501--505, 2014. DOI 10.1109/ITW.2014.6970882.
 
-\bibitem{bottleneck} N. Tishby, F. C. Pereira, W. Bialek. The information
-bottleneck method. \emph{Allerton}, 1999.
+\bibitem{bottleneck} N. Tishby, F. C. Pereira, W. Bialek. The Information
+Bottleneck Method. \emph{Allerton Conference on Communication, Control and
+Computing}, 1999.
 
-\bibitem{tishby} N. Tishby, N. Zaslavsky. Deep learning and the information
-bottleneck principle. \emph{IEEE Information Theory Workshop}, 2015.
+\bibitem{dobrushin} R. L. Dobrushin. Central Limit Theorem for Non-Stationary
+Markov Chains. \emph{Theory of Probability and its Applications},
+1(1):65--80, 1956.
 
-\bibitem{dobrushin} R. L. Dobrushin. Central limit theorem for non-stationary
-Markov chains. \emph{Theory of Probability and its Applications}, 1956.
+\bibitem{raginsky} M. Raginsky. Strong Data Processing Inequalities and
+$\Phi$-Sobolev Inequalities for Discrete Channels. \emph{IEEE Transactions on
+Information Theory}, 62(6):3355--3389, 2016.
 
-\bibitem{raginsky} M. Raginsky. Strong data processing inequalities and
-$\Phi$-Sobolev inequalities for discrete channels. \emph{IEEE Transactions on
-Information Theory}, 62(6), 2016.
-
-\bibitem{judgebias} Judging LLM-as-a-judge: biases and reliability.
-\textbf{[CITATION NEEDED]}
-
-\bibitem{judgesurvey} A survey on LLM-as-a-judge. \textbf{[CITATION NEEDED]}
+\bibitem{judgebias} L. Zheng, W.-L. Chiang, Y. Sheng, S. Zhuang, Z. Wu, Y. Zhuang,
+Z. Lin, Z. Li, D. Li, E. P. Xing, H. Zhang, J. E. Gonzalez, I. Stoica. Judging
+LLM-as-a-Judge with MT-Bench and Chatbot Arena. arXiv:2306.05685, 2023.
 
 \end{thebibliography}
 

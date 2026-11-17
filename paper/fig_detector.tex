@@ -1,0 +1,60 @@
+% The detector cascade. Kept to straight left-to-right segments: an earlier
+% version routed with |- and the elbows overshot their targets.
+%
+% The point the picture has to carry: each stage only sees what the previous one
+% could not decide, so the LLM judge -- the stage that failed validation --
+% adjudicates a narrow band and not the whole measurement.
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  stage/.style={draw=black!55, fill=black!3, rounded corners=2pt,
+                minimum width=32mm, minimum height=12mm, align=center},
+  judgestage/.style={stage, draw=orange!70!black, fill=orange!8},
+  verdict/.style={draw=black!45, fill=white, rounded corners=1pt,
+                  minimum width=17mm, minimum height=7.5mm, align=center,
+                  font=\sffamily\small},
+  flow/.style={-{Latex[length=2mm]}, draw=black!65, thick},
+  lab/.style={font=\sffamily\scriptsize, text=black!55, inner sep=1.5pt}
+]
+
+\node[verdict, minimum width=26mm, minimum height=11mm] (in) at (0,0)
+  {relay text\\$+$ proposition $S$};
+
+% ---- stage 1
+\node[stage] (lex) at (4.6,0) {\textbf{1. lexical gate}\\surface forms of $S$};
+\draw[flow] (in) -- (lex);
+
+\node[verdict] (leakA) at (4.6,2.3) {\textbf{leak}};
+\draw[flow] (lex) -- node[lab, right] {hit} (leakA);
+
+% ---- stage 2
+\node[stage] (nli) at (9.6,0) {\textbf{2. entailment}\\DeBERTa-v3-large};
+\draw[flow] (lex) -- node[lab, above] {no hit} (nli);
+
+\node[verdict] (leakB) at (9.6,2.3) {\textbf{leak}};
+\node[verdict] (cleanB) at (9.6,-2.3) {\textbf{clean}};
+\draw[flow] (nli) -- node[lab, right] {$p > 0.75$} (leakB);
+\draw[flow] (nli) -- node[lab, right] {$p < 0.25$} (cleanB);
+
+% ---- stage 3
+\node[judgestage] (judge) at (15.0,0) {\textbf{3. LLM judge}\\verdict on the band};
+\draw[flow] (nli) -- node[lab, above] {$0.25 \le p \le 0.75$} (judge);
+
+\node[verdict] (leakC) at (15.0,2.3) {\textbf{leak}};
+\node[verdict] (cleanC) at (15.0,-2.3) {\textbf{clean}};
+\draw[flow] (judge) -- (leakC);
+\draw[flow] (judge) -- (cleanC);
+
+\node[lab, text width=38mm, align=left, anchor=west, text=orange!50!black]
+  at (17.0,0) {the band is small: \textbf{16 of 720} detections in the
+               replication run, \textbf{4 of 480} in the petal run};
+
+% ---- validation strip
+\node[draw=violet!55!black, fill=violet!5, rounded corners=2pt,
+      text width=196mm, align=center, font=\sffamily\scriptsize,
+      inner sep=3pt, anchor=north] at (9.2,-3.4)
+  {\textbf{validated on 80 design-weighted hand labels} (Qwen) $\;\cdot\;$
+   specificity $0.988$ $[0.976,\,1.000]$ $\;\cdot\;$
+   sensitivity $1.000$ point, but $\boldsymbol{\geq 0.691}$ is the figure to
+   quote: no miss was observed anywhere in the labels, so the bound does the work};
+
+\end{tikzpicture}

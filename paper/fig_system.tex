@@ -1,0 +1,96 @@
+% The system diagram. Drawn in TikZ rather than imported so it stays vector,
+% has no external dependency, and can be edited beside the prose it explains.
+%
+% What it has to show, in one picture:
+%   1. where S enters (the restricted annex, visible only to the planner)
+%   2. where the arm intervenes (between the draft and the relay -- m1 is the
+%      only channel a relay defence is responsible for)
+%   3. that hops 2 and 3 never see the case file, which is why the relay has to
+%      carry everything
+%   4. where the two measurements are taken, and that they are taken on the
+%      SAME text -- that is the paper's argument in a diagram
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  agent/.style={draw=black!55, fill=black!3, rounded corners=2pt,
+                minimum width=26mm, minimum height=12mm, align=center},
+  doc/.style={draw=black!35, fill=white, rounded corners=1pt,
+              minimum width=22mm, minimum height=9mm, align=center,
+              font=\sffamily\scriptsize},
+  secret/.style={draw=red!55!black, fill=red!5, rounded corners=1pt,
+                 minimum width=22mm, minimum height=9mm, align=center,
+                 font=\sffamily\scriptsize},
+  defence/.style={draw=blue!55!black, fill=blue!5, rounded corners=2pt,
+                  minimum width=20mm, minimum height=10mm, align=center,
+                  font=\sffamily\scriptsize},
+  meas/.style={draw=violet!60!black, fill=violet!5, rounded corners=2pt,
+               minimum width=30mm, minimum height=9mm, align=center,
+               font=\sffamily\scriptsize},
+  flow/.style={-{Latex[length=2mm]}, draw=black!65, thick},
+  thin flow/.style={-{Latex[length=1.6mm]}, draw=black!40},
+  note/.style={font=\sffamily\scriptsize, text=black!60, align=center}
+]
+
+% ---------------------------------------------------------------- inputs
+\node[doc]    (afile)  at (0, 1.15) {case file $A$\\{\itshape permitted}};
+\node[secret] (annex)  at (0, -0.15) {annex: $S$\\{\itshape restricted}};
+
+% ---------------------------------------------------------------- hop 1
+\node[agent] (p) at (3.4, 0.5) {\textbf{planner}\\hop 1};
+
+\draw[flow] (afile.east) -- (p.west |- afile.east) -- (p.west);
+\draw[flow] (annex.east) -- (p.west |- annex.east) -- (p.west);
+
+% ------------------------------------------------- draft, arm, relay
+\node[doc] (draft) at (6.55, 0.5) {draft $m_1^{\text{draft}}$};
+\draw[flow] (p) -- (draft);
+
+\node[defence] (arm) at (9.3, 0.5) {\textbf{arm}\\relay policy};
+\draw[flow] (draft) -- (arm);
+
+\node[doc] (m1) at (12.0, 0.5) {relay $m_1$};
+\draw[flow] (arm) -- (m1);
+
+% ---------------------------------------------------------------- hops 2,3
+\node[agent] (w) at (12.0, -1.9) {\textbf{worker}\\hop 2};
+\node[agent] (r) at (12.0, -3.9) {\textbf{reporter}\\hop 3};
+\node[doc]   (out) at (12.0, -5.6) {answer $Y$};
+
+\draw[flow] (m1) -- (w);
+\draw[flow] (w) -- node[right, note, xshift=1mm] {$m_2$} (r);
+\draw[flow] (r) -- (out);
+
+% the thing that makes the relay load-bearing
+\node[note, text width=34mm] (noaccess) at (7.3, -2.9)
+  {hops 2 and 3 never see $A$ or the annex --- whatever is not in $m_1$\\is gone};
+\draw[thin flow, dashed] (noaccess.east) -- (w.west);
+\draw[thin flow, dashed] (noaccess.east) -- (r.west);
+
+% ---------------------------------------------------------------- measurement
+\node[meas] (det) at (16.1, 0.5) {\textbf{asserts $S$?}\\cascade detector};
+\node[meas] (bits) at (16.1, -1.3) {\textbf{discloses $S$?}\\bits, closed form};
+
+\draw[flow, violet!60!black] (m1) -- (det);
+\draw[flow, violet!60!black] (m1.north) .. controls +(0.9,0.9) and +(-1.5,1.4) .. (bits.west);
+
+\node[note, text width=30mm, text=violet!50!black] at (16.1, -2.9)
+  {both read the \emph{same} relay. \S\ref{sec:bits}: they disagree};
+
+% the decision floor
+\draw[flow, violet!60!black] (out.east) .. controls +(2.6,0) and +(0,-2.9) .. (bits.south);
+\node[note, text width=33mm, text=violet!50!black] at (15.2, -5.3)
+  {$Y$ is a function of $S$: $1.585$ bits no relay policy can remove};
+
+% ---------------------------------------------------------------- arm legend
+\node[note, anchor=north west, text width=96mm, align=left] at (0.6, -4.3)
+  {\textbf{arms.}
+   \textsc{full} passes the annex $\cdot$
+   \textsc{drop} passes nothing of it $\cdot$
+   \textsc{swap} passes a different secret $S'$ (causal control) $\cdot$
+   \textsc{constraint\_only} passes the operative constraint $\cdot$
+   \textsc{decision\_only} passes the chosen option $\cdot$
+   \textsc{b1\_privacy} appends a privacy instruction $\cdot$
+   \textsc{b4\_restriction} a restriction-aware instruction $\cdot$
+   \textsc{petal\_text} masks disclosing spans and regenerates them $\cdot$
+   \textsc{b6\_placebo} masks the same spans, fills with irrelevant text};
+
+\end{tikzpicture}
