@@ -854,6 +854,124 @@ We also note $n=20$ per cell makes the noise on an error rate roughly $\pm 0.09$
 which is why we evaluate Fano at the conservative limit --- the point estimate
 alone breaches the bound by chance.
 
+\section{Placing this beside AgentLeak}
+\label{sec:agentleak}
+
+AgentLeak \cite{agentleak} is the closest large-scale measurement to our setting,
+and the comparison is worth making explicitly because the two results compose
+rather than compete.
+
+\subsection{What AgentLeak establishes}
+
+Across $4{,}979$ execution traces, five production models and four sensitive
+domains, instrumenting seven channels (with quantitative analysis on final
+outputs C1, inter-agent messages C2, and shared memory C5):
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lc}
+\toprule
+quantity & rate \\
+\midrule
+final outputs (C1), multi-agent & 27.2\% \\
+final outputs (C1), single-agent & 43.2\% \\
+\textbf{inter-agent messages (C2)} & \textbf{68.8\%} \\
+total system exposure (any of C1, C2, C5) & 68.9\% \\
+violations missed by output-only auditing & 41.7\% \\
+\bottomrule
+\end{tabular}
+\caption{AgentLeak's headline figures \cite{agentleak}.}
+\label{tab:agentleak}
+\end{table}
+
+The finding that motivates our work is the first two rows read together:
+\textbf{decomposing a task across agents makes the final output look safer}
+(27.2\% against 43.2\%) \textbf{while making the system leakier} (68.9\% total
+exposure, roughly $1.6\times$ the single-agent baseline). The leakage moves into
+the handover text. An audit that watches outputs sees an improvement where there
+is a regression.
+
+\subsection{Our undefended arm is in the same regime}
+
+Our \textsc{full} arm is the undefended inter-agent relay, which is AgentLeak's
+C2. The rates are close enough to be worth stating, and different enough that we
+state the caveats with them:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llc}
+\toprule
+measurement & setting & rate \\
+\midrule
+AgentLeak C2, pooled over 5 models & their scenarios & 68.8\% \\
+ours, \textsc{full}, Qwen3.8-27B & content tasks & 86.7\% \\
+ours, \textsc{full}, Qwen3.8-27B & decision tasks & 76.7\% \\
+ours, \textsc{full}, Llama-3.3-70B & content tasks & 60.0\% \\
+ours, \textsc{full}, Llama-3.3-70B & decision tasks & 10.0\% \\
+\bottomrule
+\end{tabular}
+\caption{Inter-agent relay leakage, ours beside theirs. Not a like-for-like
+comparison --- see the caveats below.}
+\label{tab:agentleak_vs}
+\end{table}
+
+\paragraph{The comparison is indicative, not like-for-like.} Different
+scenarios, different detectors, and a different definition of a violation: we
+score \emph{assertion of one designated proposition} $S$ by a cascade validated
+against hand labels, whereas AgentLeak scores leakage of sensitive items more
+broadly. Our scenarios are also built so $S$ is necessary for the task, which
+pushes an undefended relay toward mentioning it. We would not claim our 76.7\%
+replicates their 68.8\%; we claim only that an undefended relay in our testbed
+sits in the same regime, so the defences we measure are being tested against a
+realistic baseline rather than a toy one.
+
+\paragraph{One model appears in both studies, and disagrees with itself.}
+Llama-3.3-70B is in AgentLeak's model set and is our \textsc{agent\_b}. On our
+content tasks it leaks at 60.0\%, which is broadly consistent with their pooled
+figure. On our \emph{decision} tasks it leaks at 10.0\% --- far below. The reason
+is the spontaneous abstraction documented in \S\ref{sec:exp1}: on decision tasks
+this model relays the schedule rather than the condition without being asked to,
+and its \textsc{swap} positive control drops to $0.167$, showing the arm barely
+relayed anything at all. This is a concrete instance of our methodological point
+about $\Lk$: \textbf{a single pooled leakage rate per model can hide an order of
+magnitude of task-type variation}, and a defence evaluated only where a model
+already abstracts will appear to work.
+
+\subsection{Two different things an audit can miss}
+
+AgentLeak's 41.7\% is a \textbf{channel-coverage} gap: watch the output, miss the
+handover. Our result is a \textbf{measurement-type} gap: watch the right channel,
+score it correctly for assertion, and still miss the inference. These compose,
+and the second survives a complete fix of the first.
+
+The arithmetic on our \textsc{constraint\_only} arm makes the size of the second
+gap concrete. A channel-complete auditor reading the relay with our validated
+detector --- specificity $0.988$, no observed miss in $80$ labels --- records an
+assertion rate of $0.017$ $\CI{0.000}{0.088}$, against $0.763$ for the undefended
+arm. By that measurement the defence removes $98\%$ of the leakage at no cost to
+utility. The same relay carries $1.585$ of the $2.585$ bits of $H(S)$, and the
+decision it licenses carries the same $1.585$ bits whatever the relay says
+(\S\ref{sec:bits}).
+
+So a system could be audited on every channel AgentLeak instruments, score near
+zero on all of them, and still hand a downstream reader $61\%$ of the secret. We
+are not claiming AgentLeak's numbers are wrong --- they measure what they say
+they measure, on channels that genuinely leak. We are claiming that driving those
+numbers down is an achievable and insufficient goal, and that a benchmark
+reporting them should report beside them what an inference-capable reader
+recovers. Our \S\ref{sec:adversary} is one cheap way to do that: give a model the
+permitted context plus the relay and ask it to name the secret, with the
+\textsc{drop} arm as the floor.
+
+\paragraph{A caution for anyone building such a benchmark.} We attempted exactly
+this with an LLM judge and it failed in a specific, repeatable way
+(\S\ref{sec:detector}): on the items where our judge and our cascade disagreed,
+the judge was wrong $30$ times out of $30$, and $21$ of its $27$ false flags were
+inferential reads --- it was detecting the inference and reporting it as
+assertion. That conflation is the error this paper exists to separate, and a
+leakage benchmark scored by an LLM judge is exposed to it in the direction of
+overstating assertion.
+
 \section{Limitations}
 \label{sec:limitations}
 
