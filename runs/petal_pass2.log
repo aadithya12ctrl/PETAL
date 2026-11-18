@@ -1,0 +1,22 @@
+scenarios 60 x arms 2 x models 1 = 120 runs, seed 20261109, backend openrouter
+pre-registration: pre-registration ok (frozen 2026-11-10T17:59:33+00:00, scenarios b981621de102)
+projected upper bound for this invocation: $1.413
+gap scan: entailment-backed, 2029 cached pairs
+spend before: $7.4974 of $9.00
+[costmeter] WARNING: spent $7.4974 of $9.00
+  agent_a  10/60  spend $7.4974  cache {'hits': 69, 'misses': 0}
+  agent_a  20/60  spend $7.4974  cache {'hits': 138, 'misses': 0}
+  agent_a  30/60  spend $7.4974  cache {'hits': 207, 'misses': 0}
+  agent_a  40/60  spend $7.5031  cache {'hits': 273, 'misses': 5}
+  agent_a  50/60  spend $7.5076  cache {'hits': 337, 'misses': 10}
+  agent_a  60/60  spend $7.5076  cache {'hits': 407, 'misses': 10}
+
+ESCALATED after truncation: 8 of 409 calls (2.0%)
+   qwen/qwen3.8-27b | 2000->4000                      8
+gap scorer(s) used: lexical+nli
+
+120 runs, 409 calls (10 paid), 148.8s
+spend after: $7.5076
+cache: {'hits': 407, 'misses': 10}
+-> runs\exp1_petal_entail.jsonl
+=== pass 2 exit 0 ===
